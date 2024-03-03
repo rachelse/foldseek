@@ -24,6 +24,7 @@ extern int scorecomplex(int argc, const char **argv, const Command& command);
 extern int filtercomplex(int argc, const char **argv, const Command& command);
 extern int easycomplexcluster(int argc, const char** argv, const Command &command);
 extern int complexcluster(int argc, const char** argv, const Command &command);
+extern int complexcreatedb(int argc, const char **argv, const Command &command);
 extern int easycomplexsearch(int argc, const char **argv, const Command &command);
 extern int createcomplexreport(int argc, const char **argv, const Command &command);
 extern int expandcomplex(int argc, const char **argv, const Command &command);

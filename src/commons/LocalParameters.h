@@ -42,6 +42,7 @@ public:
 
     static const int CHAIN_MODE_AUTO = 0;
     static const int CHAIN_MODE_ADD = 1;
+    static const int CHAIN_MODE_COMPLEX = 2;
 
     static const int OUTFMT_QCA = 40;
     static const int OUTFMT_TCA = 41;
@@ -90,6 +91,7 @@ public:
     std::vector<MMseqsParameter *> compressca;
     std::vector<MMseqsParameter *> scorecomplex;
     std::vector<MMseqsParameter *> filtercomplex;
+    std::vector<MMseqsParameter *> complexcreatedb; //TEST
     std::vector<MMseqsParameter *> complexclusterworkflow;
     std::vector<MMseqsParameter *> easycomplexclusterworkflow;
     std::vector<MMseqsParameter *> complexsearchworkflow;

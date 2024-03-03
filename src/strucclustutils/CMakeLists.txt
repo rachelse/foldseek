@@ -15,6 +15,7 @@ set(strucclustutils_source_files
         strucclustutils/compressca.cpp
         strucclustutils/scorecomplex.cpp
         strucclustutils/filtercomplex.cpp
+        strucclustutils/complexcreatedb.cpp
         strucclustutils/createcomplexreport.cpp
         strucclustutils/createcomplexreport.h
         strucclustutils/expandcomplex.cpp

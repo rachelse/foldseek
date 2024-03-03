@@ -16,7 +16,7 @@ LocalParameters::LocalParameters() :
         PARAM_SORT_BY_STRUCTURE_BITS(PARAM_SORT_BY_STRUCTURE_BITS_ID,"--sort-by-structure-bits", "Sort by structure bit score", "sort by bits*sqrt(alnlddt*alntmscore)",typeid(int), (void *) &sortByStructureBits, "^[0-1]{1}$", MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_EXPERT),
         PARAM_MASK_BFACTOR_THRESHOLD(PARAM_MASK_BFACTOR_THRESHOLD_ID,"--mask-bfactor-threshold", "Mask b-factor threshold", "mask residues for seeding if b-factor < thr [0,100]",typeid(float), (void *) &maskBfactorThreshold, "^[0-9]*(\\.[0-9]+)?$"),
         PARAM_ALIGNMENT_TYPE(PARAM_ALIGNMENT_TYPE_ID,"--alignment-type", "Alignment type", "How to compute the alignment:\n0: 3di alignment\n1: TM alignment\n2: 3Di+AA",typeid(int), (void *) &alignmentType, "^[0-2]{1}$"),
-        PARAM_CHAIN_NAME_MODE(PARAM_CHAIN_NAME_MODE_ID,"--chain-name-mode", "Chain name mode", "Add chain to name:\n0: auto\n1: always add\n",typeid(int), (void *) &chainNameMode, "^[0-1]{1}$", MMseqsParameter::COMMAND_EXPERT),
+        PARAM_CHAIN_NAME_MODE(PARAM_CHAIN_NAME_MODE_ID,"--chain-name-mode", "Chain name mode", "Add chain to name:\n0: auto\n1: always add\n2: skip\n",typeid(int), (void *) &chainNameMode, "^[0-2]{1}$", MMseqsParameter::COMMAND_EXPERT),
         PARAM_WRITE_MAPPING(PARAM_WRITE_MAPPING_ID, "--write-mapping", "Write mapping file", "write _mapping file containing mapping from internal id to taxonomic identifier", typeid(int), (void *) &writeMapping, "^[0-1]{1}", MMseqsParameter::COMMAND_EXPERT),
         PARAM_TMALIGN_FAST(PARAM_TMALIGN_FAST_ID,"--tmalign-fast", "TMalign fast","turn on fast search in TM-align" ,typeid(int), (void *) &tmAlignFast, "^[0-1]{1}$"),
         PARAM_N_SAMPLE(PARAM_N_SAMPLE_ID, "--n-sample", "Sample size","pick N random sample" ,typeid(int), (void *) &nsample, "^[0-9]{1}[0-9]*$"),
@@ -179,6 +179,21 @@ LocalParameters::LocalParameters() :
     filtercomplex.push_back(&PARAM_THREADS);
     filtercomplex.push_back(&PARAM_C);
     filtercomplex.push_back(&PARAM_COV_MODE);
+
+    //TODO:complexcreatedb
+    complexcreatedb.push_back(&PARAM_CHAIN_NAME_MODE);
+    complexcreatedb.push_back(&PARAM_WRITE_MAPPING);
+    // structurecreatedb.push_back(&PARAM_MASK_BFACTOR_THRESHOLD);
+    // structurecreatedb.push_back(&PARAM_COORD_STORE_MODE);
+    complexcreatedb.push_back(&PARAM_WRITE_LOOKUP);
+    // structurecreatedb.push_back(&PARAM_TAR_INCLUDE);
+    // structurecreatedb.push_back(&PARAM_TAR_EXCLUDE);
+    complexcreatedb.push_back(&PARAM_INPUT_FORMAT);
+    // protein chain only
+    // structurecreatedb.push_back(&PARAM_FILE_INCLUDE);
+    // structurecreatedb.push_back(&PARAM_FILE_EXCLUDE);
+    complexcreatedb.push_back(&PARAM_THREADS);
+    complexcreatedb.push_back(&PARAM_V); 
 
     // createcomplexreport
     createcomplexreport.push_back(&PARAM_DB_OUTPUT);

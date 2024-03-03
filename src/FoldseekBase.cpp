@@ -275,6 +275,15 @@ std::vector<Command> foldseekCommands = {
                                            {"clustDB", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &FoldSeekDbValidator::clusterDb }
                                    }
         },
+        {"complexcreatedb", complexcreatedb, &localPar.complexcreatedb, COMMAND_HIDDEN,
+                "Generate header files for complexDB",
+                "Seongeun  Kim <seamustard52@gmail.com> & Sooyoung Cha <ellen2g77@gmail.com>",
+                "<i:sequenceDB> <o:complexDB>",
+                CITATION_FOLDSEEK, {
+                                        {"sequenceDB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA, &DbValidator::flatfile },
+                                        {"complexDB", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &DbValidator::flatfile }
+                                   }
+        },
         {"complexcluster", complexcluster, &localPar.complexclusterworkflow, COMMAND_MAIN, 
                 "Complex level cluster",
                 "#Clustering of PDB DB\n"

@@ -221,6 +221,7 @@ int filtercomplex(int argc, const char **argv, const Command &command) {
             resultWriter.writeData(result.c_str(), result.length(), qComplexId);
         }
     }
+
     resultWriter.close(true);
     alnDbr.close();
     delete qDbr;
