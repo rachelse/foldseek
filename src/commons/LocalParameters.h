@@ -102,6 +102,7 @@ public:
     std::vector<MMseqsParameter *> createcomplexreport;
     std::vector<MMseqsParameter *> expandcomplex;
     std::vector<MMseqsParameter *> convert2pdb;
+    std::vector<MMseqsParameter *> createcolabfoldreport;
 
     PARAMETER(PARAM_PREF_MODE)
     PARAMETER(PARAM_TMSCORE_THRESHOLD)

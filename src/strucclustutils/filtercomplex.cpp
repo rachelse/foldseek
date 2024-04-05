@@ -336,7 +336,7 @@ int filtercomplex(int argc, const char **argv, const Command &command) {
     resultWriter.open();
 
     const int db5Type = Parameters::DBTYPE_GENERIC_DB;
-    DBWriter resultWrite5(par.db5.c_str(), par.db5Index.c_str(), 1, shouldCompress, db5Type);
+    DBWriter resultWrite5(par.db4.c_str(), par.db5Index.c_str(), 1, shouldCompress, db5Type);
     resultWrite5.open();
     resultToWrite_t result5;
 

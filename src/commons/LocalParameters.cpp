@@ -222,6 +222,11 @@ LocalParameters::LocalParameters() :
     convert2pdb.push_back(&PARAM_THREADS);
     convert2pdb.push_back(&PARAM_V);
 
+    // createcolabfoldreport
+    createcolabfoldreport.push_back(&PARAM_THREADS);
+    createcolabfoldreport.push_back(&PARAM_V);
+    createcolabfoldreport.push_back(&PARAM_DB_OUTPUT);
+
     prefMode = PREF_MODE_KMER;
     alignmentType = ALIGNMENT_TYPE_3DI_AA;
     tmScoreThr = 0.0;

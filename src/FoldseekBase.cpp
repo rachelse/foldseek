@@ -282,7 +282,7 @@ std::vector<Command> foldseekCommands = {
                                            {"alignmentDB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA, &DbValidator::alignmentDb },
                                            {"clustDB", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &FoldSeekDbValidator::clusterDb },
 
-                                           {"tmptsv", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &FoldSeekDbValidator::flatfile }
+                                        //    {"tmptsv", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &FoldSeekDbValidator::flatfile }
                                    }
         },
         {"complexcluster", complexcluster, &localPar.complexclusterworkflow, COMMAND_MAIN, 
@@ -392,6 +392,25 @@ std::vector<Command> foldseekCommands = {
                  {"alignmentDB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA, &DbValidator::alignmentDb },
                  {"prefilterDB", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &FoldSeekDbValidator::prefilterDb }
              }
+        },
+        {"createcolabfoldreport", createcolabfoldreport, &localPar.createcolabfoldreport, COMMAND_HIDDEN,
+                "Convert complexDB to tsv format",
+                "# Create output in tsv format (9 columns):  qComplexName.c_str(), tComplexName.c_str(), qChainString.c_str(), tChainString.c_str(), qTMScore, tTMScore, u, t, assId\n"
+                "#  (1,2) identifiers for query and target complex,\n"
+                "#  (3,4) chains of query complex and target complex,\n"
+                "#  (5,6) tm score based on query and target residue length,\n"
+                "#  (8,9) u and t,\n"
+                "#  (9) assignment id\n"
+                "#  (10,11) per chain tm-score of query complex and target complex,\n"
+                "foldseek createcolabfoldreport queryDB targetDB complexDB result.tsv\n",
+                "Seongeun  Kim <seamustard52@gmail.com>",
+                "<i:queryDb> <i:targetDb> <i:complexDB> <o:complexFile>",
+                CITATION_FOLDSEEK, {
+                                           {"queryDB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA|DbType::NEED_HEADER, &DbValidator::sequenceDb },
+                                           {"targetDB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA|DbType::NEED_HEADER, &DbValidator::sequenceDb },
+                                           {"complexDB", DbType::ACCESS_MODE_INPUT, DbType::NEED_DATA, &DbValidator::alignmentDb },
+                                           {"complexFile", DbType::ACCESS_MODE_OUTPUT, DbType::NEED_DATA, &DbValidator::flatfile}
+                                   }
         },
         {"version",              versionstring,        &localPar.empty,                COMMAND_HIDDEN,
                 "",

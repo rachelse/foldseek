@@ -28,4 +28,5 @@ extern int easycomplexsearch(int argc, const char **argv, const Command &command
 extern int createcomplexreport(int argc, const char **argv, const Command &command);
 extern int expandcomplex(int argc, const char **argv, const Command &command);
 extern int complexsearch(int argc, const char **argv, const Command &command);
+extern int createcolabfoldreport(int argc, const char **argv, const Command &command);
 #endif

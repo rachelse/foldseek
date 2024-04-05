@@ -18,6 +18,7 @@ set(strucclustutils_source_files
         strucclustutils/createcomplexreport.cpp
         strucclustutils/createcomplexreport.h
         strucclustutils/expandcomplex.cpp
+        strucclustutils/createcolabfoldreport.cpp
         PARENT_SCOPE
         )
 
