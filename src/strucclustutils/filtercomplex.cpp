@@ -13,125 +13,122 @@
 #include "LDDT.h"
 #include "CalcProbTP.h"
 #include <map>
-
+#include <numeric>
 
 #ifdef OPENMP
 #include <omp.h>
 #endif
 
-
-unsigned int adjustAlnLen(unsigned int qcov, unsigned int tcov, int covMode) {
-    switch (covMode) {
-        case Parameters::COV_MODE_BIDIRECTIONAL:
-            return (qcov+tcov)/2;
-        case Parameters::COV_MODE_TARGET:
-            return qcov;
-        case Parameters::COV_MODE_QUERY:
-            return tcov;
-        case Parameters::COV_MODE_LENGTH_QUERY :
-        case Parameters::COV_MODE_LENGTH_TARGET :
-        case Parameters::COV_MODE_LENGTH_SHORTER :
-            return 0;
-        default:
-            return 0;
-    }
-}
-
-bool hasChainnum(bool sameChainNum, int qChainNum, int tChainNum){
-    switch (sameChainNum){
-        case 1:
-            if (qChainNum != tChainNum){
-                return false;
-            }else{return true;}
-        case 0:
-            return true;
-    }
-}
-
-bool hasTM(float TMThr, int covMode, double qTM, double tTM){
-    switch (covMode) {
-        case Parameters::COV_MODE_BIDIRECTIONAL:
-            return ((qTM>= TMThr) && (tTM >= TMThr));
-        case Parameters::COV_MODE_TARGET:
-            return (tTM >= TMThr);
-        case Parameters::COV_MODE_QUERY:
-            return (qTM >= TMThr);
-        case Parameters::COV_MODE_LENGTH_QUERY :
-        case Parameters::COV_MODE_LENGTH_TARGET :
-        case Parameters::COV_MODE_LENGTH_SHORTER :
-            return true;
-        default:
-            return true;
-    }
-}
-
-bool hasChainTm(float chainTMThr, int covMode, std::vector<double> &qChainTmScores, std::vector<double> &tChainTmScores, unsigned int qChainNum, unsigned int tChainNum) {
-    if (chainTMThr > 0 ){
-        switch (covMode) {
-            case Parameters::COV_MODE_BIDIRECTIONAL:
-                if (qChainTmScores.size()<std::min(qChainNum, tChainNum)){
-                    return false;
-                }
-                for (size_t i = 0; i < qChainTmScores.size(); i++) {
-                    if (qChainTmScores[i] < chainTMThr || tChainTmScores[i] < chainTMThr) {
-                        return false;
-                    }
-                }
-                break;
-            case Parameters::COV_MODE_TARGET:
-                if (qChainTmScores.size()<std::min(qChainNum, tChainNum)){
-                    return false;
-                }
-                for (size_t i = 0; i < qChainTmScores.size(); i++) {
-                    if (tChainTmScores[i] < chainTMThr) {
-                        return false;
-                    }
-                }
-                break;
-            case Parameters::COV_MODE_QUERY:
-                if (qChainTmScores.size()<std::min(qChainNum, tChainNum)){
-                    return false;
-                }
-                for (size_t i = 0; i < qChainTmScores.size(); i++) {
-                    if (qChainTmScores[i] < chainTMThr) {
-                        return false;
-                    }
-                }
-                break;
-            case Parameters::COV_MODE_LENGTH_QUERY :
-            case Parameters::COV_MODE_LENGTH_TARGET :
-            case Parameters::COV_MODE_LENGTH_SHORTER :
-                break;
-        }
-    }
-    return true;
-}
-
 struct ComplexFilterCriteria {
     ComplexFilterCriteria() {}
-    ComplexFilterCriteria(unsigned int dbKey, unsigned int qTotalAlnLen, unsigned int tTotalAlnLen, double qTM, double tTM, double qChainTm, double tChainTm) :
+    ComplexFilterCriteria(unsigned int dbKey, unsigned int qTotalAlnLen, unsigned int tTotalAlnLen, double qTM, double tTM, double avglddt, double qChainTm, double tChainTm) :
                         dbKey(dbKey), qTotalAlnLen(qTotalAlnLen), tTotalAlnLen(tTotalAlnLen), qTM(qTM), tTM(tTM) {
                             alignedQChainTmScores.push_back(qChainTm);
                             alignedTChainTmScores.push_back(tChainTm);
+                            chainlDDTs.push_back(avglddt);
                         }
     ~ComplexFilterCriteria() {
         alignedQChainTmScores.clear();
         alignedTChainTmScores.clear();
+        chainlDDTs.clear();
     }
 
-    bool satisfy(int covMode, float covThr, float TMThr, float chainTMThr, bool sameChainNum, int qChainNum, int tChainNum ) {
+    bool hasChainnum(bool sameChainNum, int qChainNum, int tChainNum){
+        switch (sameChainNum){
+            case 1:
+                if (qChainNum != tChainNum){
+                    return false;
+                }else{return true;}
+            case 0:
+                return true;
+}
+    }
+    bool hasTM(float TMThr, int covMode){
+        switch (covMode) {
+            case Parameters::COV_MODE_BIDIRECTIONAL:
+                return ((qTM>= TMThr) && (tTM >= TMThr));
+            case Parameters::COV_MODE_TARGET:
+                return (tTM >= TMThr);
+            case Parameters::COV_MODE_QUERY:
+                return (qTM >= TMThr);
+            case Parameters::COV_MODE_LENGTH_QUERY :
+            case Parameters::COV_MODE_LENGTH_TARGET :
+            case Parameters::COV_MODE_LENGTH_SHORTER :
+                return true;
+            default:
+                return true;
+        }
+    }
+    // bool hasChainTm(float chainTMThr, int covMode, unsigned int qChainNum, unsigned int tChainNum) {
+    //     if (chainTMThr > 0 ){
+    //         switch (covMode) {
+    //             case Parameters::COV_MODE_BIDIRECTIONAL:
+    //                 if (alignedQChainTmScores.size()<std::min(qChainNum, tChainNum)){
+    //                     return false;
+    //                 }
+    //                 for (size_t i = 0; i < alignedQChainTmScores.size(); i++) {
+    //                     if (alignedQChainTmScores[i] < chainTMThr || alignedTChainTmScores[i] < chainTMThr) {
+    //                         return false;
+    //                     }
+    //                 }
+    //                 break;
+    //             case Parameters::COV_MODE_TARGET:
+    //                 if (alignedQChainTmScores.size()<std::min(qChainNum, tChainNum)){
+    //                     return false;
+    //                 }
+    //                 for (size_t i = 0; i < alignedTChainTmScores.size(); i++) {
+    //                     if (alignedTChainTmScores[i] < chainTMThr) {
+    //                         return false;
+    //                     }
+    //                 }
+    //                 break;
+    //             case Parameters::COV_MODE_QUERY:
+    //                 if (alignedQChainTmScores.size()<std::min(qChainNum, tChainNum)){
+    //                     return false;
+    //                 }
+    //                 for (size_t i = 0; i < alignedQChainTmScores.size(); i++) {
+    //                     if (alignedQChainTmScores[i] < chainTMThr) {
+    //                         return false;
+    //                     }
+    //                 }
+    //                 break;
+    //             case Parameters::COV_MODE_LENGTH_QUERY :
+    //             case Parameters::COV_MODE_LENGTH_TARGET :
+    //             case Parameters::COV_MODE_LENGTH_SHORTER :
+    //                 break;
+    //         }
+    //     }
+    //     return true;
+    // }
+    
+    bool hasChainlDDT(float chainlDDTthr, unsigned int qChainNum, unsigned int tChainNum ) {
+        if (chainlDDTs.size()<std::min(qChainNum, tChainNum)){
+            return false;
+        }
+        for (size_t i = 0; i < chainlDDTs.size(); i++) {
+            if (chainlDDTs[i] < chainlDDTthr) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool satisfy(int covMode, float covThr, float TMThr, float chainTMThr, bool sameChainNum, int qChainNum, int tChainNum, float chainlDDTthr) {
         const bool covOK = Util::hasCoverage(covThr, covMode, qCov, tCov);
-        const bool TMOK = hasTM(TMThr, covMode, qTM, tTM);
-        const bool chainTMOK = hasChainTm(chainTMThr, covMode, alignedQChainTmScores, alignedTChainTmScores, qChainNum, tChainNum);
+        const bool TMOK = hasTM(TMThr, covMode);
+        // const bool chainTMOK = hasChainTm(chainTMThr, covMode, qChainNum, tChainNum);
+        const bool chainlDDTOK = hasChainlDDT(chainlDDTthr,  qChainNum, tChainNum);
         const bool numOK = hasChainnum(sameChainNum, qChainNum, tChainNum);
-        return (covOK && TMOK && chainTMOK && numOK);
+        // return (covOK && TMOK && chainTMOK && numOK);
+        return (covOK && TMOK && chainlDDTOK && numOK);
     }
 
-    void update(unsigned int qTotalAlnLen, unsigned int tTotalAlnLen, double qChainTm, double tChainTm) {
+    void update(unsigned int qTotalAlnLen, unsigned int tTotalAlnLen, double avglddt, double qChainTm, double tChainTm) {
         this->qTotalAlnLen += qTotalAlnLen;
         this->tTotalAlnLen += tTotalAlnLen;
         this->alignedQChainTmScores.push_back(qChainTm);
         this->alignedTChainTmScores.push_back(tChainTm);
+        chainlDDTs.push_back(avglddt);
     }
 
     void calcCov(unsigned int qLen, unsigned int tLen) {
@@ -149,7 +146,25 @@ struct ComplexFilterCriteria {
 
     std::vector<double> alignedQChainTmScores;
     std::vector<double> alignedTChainTmScores;
+    std::vector<double> chainlDDTs;
 };
+
+unsigned int adjustAlnLen(unsigned int qcov, unsigned int tcov, int covMode) {
+    switch (covMode) {
+        case Parameters::COV_MODE_BIDIRECTIONAL:
+            return (qcov+tcov)/2;
+        case Parameters::COV_MODE_TARGET:
+            return qcov;
+        case Parameters::COV_MODE_QUERY:
+            return tcov;
+        case Parameters::COV_MODE_LENGTH_QUERY :
+        case Parameters::COV_MODE_LENGTH_TARGET :
+        case Parameters::COV_MODE_LENGTH_SHORTER :
+            return 0;
+        default:
+            return 0;
+    }
+}
 
 void fillUArr(const std::string &uString, float (&u)[3][3]) {
     std::string tmp;
@@ -232,26 +247,14 @@ void fillMatchedCoord(float * qdata, float * tdata,
 
 double computeChainTmScore(Coordinates &qm, Coordinates &tm, float t[3], float u[3][3], unsigned int alnLen, int tLen) {
     double tmscore = 0;
-    double tmalnScore = 0;
-    // float d0;
-    // if (normlen<=21) {
-    //     d0=0.5;
-    // }
-    // else {
-    //     d0=(1.24*pow((normlen*1.0-15), 1.0/3)-1.8);
-    // }
-    
     float d0 = 1.24*(cbrt(tLen-15)) -1.8;
     float d02 = d0*d0;
     Coordinates tmt(alnLen);
     BasicFunction::do_rotation(tm, tmt, alnLen, t, u);
-
     for (unsigned int k=0; k<alnLen; k++) {
         double di = BasicFunction::dist(qm.x[k], qm.y[k], qm.z[k], tmt.x[k], tmt.y[k], tmt.z[k]);
         tmscore += 1/(1+di/d02);
     }
-
-    tmscore = std::max(tmscore, tmalnScore);
     return tmscore;
 }
 
@@ -307,6 +310,79 @@ static void getlookupInfo(
     }
     lookupDB.close();
 }
+double calculateLDDT(Coordinates &queryCoords, Coordinates &targetCoords, unsigned int alnLen) {
+    vector<double> lddt_scores(alnLen, 0.0);
+    int count = 0;
+    for (size_t i = 0; i < alnLen; ++i) {
+        count = 0;
+        for (size_t j = 0; j < alnLen; ++j) {
+            if (i != j) {
+                double queryDistance = BasicFunction::dist(queryCoords.x[i],queryCoords.y[i],queryCoords.z[i],queryCoords.x[j],queryCoords.y[j],queryCoords.z[j]);
+                double targetDistance = BasicFunction::dist(targetCoords.x[i],targetCoords.y[i],targetCoords.z[i],targetCoords.x[j],targetCoords.y[j],targetCoords.z[j]);
+                
+                if (abs(queryDistance - targetDistance) <= 0.5) {
+                    count++;
+                }
+                if (abs(queryDistance - targetDistance) <= 1.0) {
+                    count++;
+                }
+                if (abs(queryDistance - targetDistance) <= 2.0) {
+                    count++;
+                }
+                if (abs(queryDistance - targetDistance) <= 4.0) {
+                    count++;
+                }
+            }
+        }
+        lddt_scores[i] = static_cast<double>(count) / ( 4 * (alnLen - 1) );
+    }
+
+    double lddt = accumulate(lddt_scores.begin(), lddt_scores.end(), 0.0) / alnLen;
+    return lddt;
+}
+
+void getAverageCoord( float * qdata, float qavgCoords[3], int qlen, float * tdata, float tavgCoords[3], int tlen, float t[3], float u[3][3]){
+    Coordinates tCoords(tlen);
+    
+    for (int i=0; i < tlen ; i++ ){
+        tCoords.x[i] = tdata[i];
+        tCoords.y[i] = tdata[tlen+i];
+        tCoords.z[i] = tdata[2*tlen+i];
+    }
+    Coordinates Coordsrot(tlen);
+    BasicFunction::do_rotation(tCoords, Coordsrot, tlen, t, u);
+    float qxsum=0.0, qysum=0.0, qzsum=0.0;
+    for (int i=0; i< qlen;i++){
+        qxsum += qdata[i];
+        qysum += qdata[qlen+i];
+        qzsum += qdata[2*qlen+i];
+    }
+    qxsum /= qlen;
+    qysum /= qlen;
+    qzsum /= qlen;
+    qavgCoords[0] = qxsum;
+    qavgCoords[1] = qysum;
+    qavgCoords[2] = qzsum;
+
+    // qavgCoords[0] = qdata[qlen/3];
+    // qavgCoords[1] = qdata[qlen + qlen/3];
+    // qavgCoords[2] = qdata[qlen*2 + qlen/3];
+    float txsum=0.0, tysum=0.0, tzsum=0.0;
+    for (int i=0; i< qlen;i++){
+        txsum += Coordsrot.x[i];
+        tysum += Coordsrot.y[i];
+        tzsum += Coordsrot.z[i];
+    }
+    txsum /= tlen;
+    tysum /= tlen;
+    tzsum /= tlen;
+    tavgCoords[0] = txsum;
+    tavgCoords[1] = tysum;
+    tavgCoords[2] = tzsum;
+    // tavgCoords[0] = Coordsrot.x[tlen/3];
+    // tavgCoords[1] = Coordsrot.y[tlen/3];
+    // tavgCoords[2] = Coordsrot.z[tlen/3];
+}
 
 int filtercomplex(int argc, const char **argv, const Command &command) {
     LocalParameters &par = LocalParameters::getLocalInstance();
@@ -315,23 +391,40 @@ int filtercomplex(int argc, const char **argv, const Command &command) {
     const bool touch = (par.preloadMode != Parameters::PRELOAD_MODE_MMAP);
     int dbaccessMode = (DBReader<unsigned int>::USE_INDEX);
 
+    //TOOD
+    //maybe set LDDT threshold based on TMthreshold
+    //or use LDDTthr 
+
     IndexReader* qDbr = NULL;
     qDbr = new IndexReader(par.db1, par.threads,  IndexReader::SRC_SEQUENCES, (touch) ? (IndexReader::PRELOAD_INDEX | IndexReader::PRELOAD_DATA) : 0, dbaccessMode);
-    DBReader<unsigned int> qStructDbr((par.db1 + "_ca").c_str(), (par.db1 + "_ca.index").c_str(), 
-                                par.threads, DBReader<unsigned int>::USE_INDEX|DBReader<unsigned int>::USE_DATA);
-    qStructDbr.open(DBReader<unsigned int>::NOSORT);
-
+    // DBReader<unsigned int> qStructDbr((par.db1 + "_ca").c_str(), (par.db1 + "_ca.index").c_str(), 
+    //                             par.threads, DBReader<unsigned int>::USE_INDEX|DBReader<unsigned int>::USE_DATA);
+    // qStructDbr.open(DBReader<unsigned int>::NOSORT);
+    IndexReader *tStructDbr = NULL;
+    IndexReader *qStructDbr = NULL;
     IndexReader* tDbr = NULL;
-    DBReader<unsigned int> *tStructDbr = NULL;
+    // DBReader<unsigned int> *tStructDbr = NULL;
+    qStructDbr = new IndexReader(
+        par.db1,
+            par.threads,
+            IndexReader::makeUserDatabaseType(LocalParameters::INDEX_DB_CA_KEY_DB1),
+            touch ? IndexReader::PRELOAD_INDEX : 0,
+            DBReader<unsigned int>::USE_INDEX | DBReader<unsigned int>::USE_DATA,
+            "_ca"
+    );
     if (sameDB) {
         tDbr = qDbr;
-        tStructDbr = &qStructDbr;
+        tStructDbr = qStructDbr;
     }
     else{
         tDbr = new IndexReader(par.db2, par.threads,  IndexReader::SRC_SEQUENCES, (touch) ? (IndexReader::PRELOAD_INDEX | IndexReader::PRELOAD_DATA) : 0, dbaccessMode);
-        tStructDbr = new DBReader<unsigned int>((par.db2 + "_ca").c_str(), (par.db2 + "_ca.index").c_str(),
-                                           par.threads, DBReader<unsigned int>::USE_INDEX|DBReader<unsigned int>::USE_DATA);
-        tStructDbr->open(DBReader<unsigned int>::NOSORT);
+        tStructDbr = new IndexReader(
+                par.db2,
+                par.threads,
+                IndexReader::makeUserDatabaseType(LocalParameters::INDEX_DB_CA_KEY_DB1),
+                touch ? (IndexReader::PRELOAD_INDEX | IndexReader::PRELOAD_DATA) : 0,
+                DBReader<unsigned int>::USE_INDEX | DBReader<unsigned int>::USE_DATA,
+                "_ca");
     }
     DBReader<unsigned int> alnDbr(par.db3.c_str(), par.db3Index.c_str(), par.threads, DBReader<unsigned int>::USE_INDEX| DBReader<unsigned int>::USE_DATA);
     alnDbr.open(DBReader<unsigned int>::LINEAR_ACCCESS);
@@ -422,14 +515,9 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     result5.append(qcomplexIdToName.at(qComplexId) + "\t" + tcomplexIdToName.at(qComplexId) + "\t1.000000\t1.000000\t1.000000\t1.000000\n");
                     break;
                 }
-                
                 char *data = alnDbr.getData(qChainAlnId, thread_idx);
                 while (*data != '\0' ) {
                     ComplexDataHandler retComplex = parseScoreComplexResult(data, res);
-                    char *qcadata = qStructDbr.getData(qChainDbId, thread_idx);
-                    size_t qCaLength = qStructDbr.getEntryLen(qChainDbId);
-                    float* qdata = qcoords.read(qcadata, res.qLen, qCaLength);
-                
                     if (!retComplex.isValid){
                         Debug(Debug::ERROR) << "No scorecomplex result provided";
                         EXIT(EXIT_FAILURE);
@@ -449,9 +537,15 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     fillUArr(retComplex.uString, u);
                     fillTArr(retComplex.tString, t);
                     tmpDBKEYut[assId]=retComplex.uString+","+retComplex.tString;
-                    char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
-                    size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
+
+                    char *qcadata = qStructDbr->sequenceReader->getData(qChainDbId, thread_idx);
+                    size_t qCaLength = qStructDbr->sequenceReader->getEntryLen(qChainDbId);
+                    float* qdata = qcoords.read(qcadata, res.qLen, qCaLength);
+
+                    char *tcadata = tStructDbr->sequenceReader->getData(tChainDbId, thread_idx);
+                    size_t tCaLength = tStructDbr->sequenceReader->getEntryLen(tChainDbId);
                     float* tdata = tcoords.read(tcadata, res.dbLen, tCaLength);
+
                     unsigned int normlen = std::min(res.qLen, res.dbLen);
                     unsigned int alnLen = cigarToAlignedLength(res.backtrace);
                     Coordinates qm(alnLen), tm(alnLen);
@@ -459,64 +553,42 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     double chainTm = computeChainTmScore(qm, tm, t, u, alnLen, res.dbLen);
                     double qChainTm = chainTm / res.qLen;
                     double tChainTm = chainTm/ res.dbLen;
+
+                    float qAvgCoord[3], tAvgCoord[3];
+                    getAverageCoord(qdata, qAvgCoord, res.qLen, tdata, tAvgCoord, res.dbLen, t, u) ;
+                    // LDDTCalculator *lddtcalculator = NULL;
+                    // lddtcalculator = new LDDTCalculator(qStructDbr.getMaxSeqLen() + 1,  tStructDbr->getMaxSeqLen() + 1);
+                    // LDDTCalculator::LDDTScoreResult lddtres;
+                    // lddtcalculator->initQuery(qCaLength, qm.x, qm.y, qm.z);
+                    // lddtres = lddtcalculator->computeLDDTScore(res.dbLen, res.qStartPos, res.dbStartPos, res.backtrace, tm.x, tm.y, tm.z);
+                    float lDDTScore = calculateLDDT (qm, tm, alnLen);   
+  
                     unsigned int qtotalaln = (std::max(res.qStartPos, res.qEndPos) - std::min(res.qStartPos, res.qEndPos) + 1);
                     unsigned int ttotalaln = (std::max(res.dbStartPos, res.dbEndPos) - std::min(res.dbStartPos, res.dbEndPos) + 1);
 
                     if (localComplexMap.find(assId) == localComplexMap.end()) {
-                        ComplexFilterCriteria cmplfiltcrit = ComplexFilterCriteria(tChainKey, qtotalaln, ttotalaln, retComplex.qTmScore, retComplex.tTmScore, qChainTm, tChainTm);
+                        // ComplexFilterCriteria cmplfiltcrit = ComplexFilterCriteria(tChainKey, qtotalaln, ttotalaln, retComplex.qTmScore, retComplex.tTmScore, lddtres.avgLddtScore );
+                        ComplexFilterCriteria cmplfiltcrit = ComplexFilterCriteria(tChainKey, qtotalaln, ttotalaln, retComplex.qTmScore, retComplex.tTmScore, lDDTScore, qChainTm, tChainTm);
                         localComplexMap[assId] = cmplfiltcrit;
                     } else {
-                        localComplexMap.at(assId).update(qtotalaln, ttotalaln, qChainTm, tChainTm);
+                        // localComplexMap.at(assId).update(qtotalaln, ttotalaln, lddtres.avgLddtScore);
+                        localComplexMap.at(assId).update(qtotalaln, ttotalaln, lDDTScore, qChainTm, tChainTm);
                     }
+                    tcadata=nullptr;
+                    qcadata=nullptr;
+                    tdata=nullptr;
+                    qdata=nullptr;
+    
                 } // while end
             }
             for (auto& assId_res : localComplexMap){
                 unsigned int tComplexId = tChainKeyToComplexIdMap.at(assId_res.second.dbKey);
                 assId_res.second.calcCov(qComplexLength.at(qComplexId), tComplexLength.at(tComplexId));
                 std::vector<unsigned int> tChainKeys = tComplexIdToChainKeyMap.at(tComplexId);
-                if (!assId_res.second.satisfy(par.covMode, par.covThr, par.filtComplexTmThr, par.filtChainTmThr, par.sameChainNumber, qChainKeys.size(), tChainKeys.size())){
+                // if (!assId_res.second.satisfy(par.covMode, par.covThr, par.filtComplexTmThr, par.filtChainTmThr, par.sameChainNumber, qChainKeys.size(), tChainKeys.size())){
+                if (!assId_res.second.satisfy(par.covMode, par.covThr, par.filtComplexTmThr, par.filtChainTmThr, par.sameChainNumber, qChainKeys.size(), tChainKeys.size(), par.filtChainLddtThr)){
                     assIdsToDelete.push_back(assId_res.first);
-                    // if (qComplexId != tComplexId){
-                    // #pragma omp critical
-                    // {
-                    //     if(assId_res.second.tTM >= 0.9 && assId_res.second.qTM >= 0.9 && assId_res.second.alignedQChainTmScores.size() == qChainKeys.size() && qChainKeys.size()==tChainKeys.size()){
-                    //         Debug(Debug::WARNING) << "BAD:    q:  "<<qcomplexIdToName.at(qComplexId)<<"   t:   "<< tcomplexIdToName.at(tComplexId)<<"\n";
-                    //         // Debug(Debug::WARNING) << "BAD:    qtm:  "<<assId_res.second.qTM<<"   ttm:   "<< assId_res.second.tTM<<"\n";
-                    //         Debug(Debug::WARNING) << "BAD:    U and T:  ";
-                    //         // Debug(Debug::WARNING) << "qchainNum:  "<<qChainKeys.size()<< "tchainNum:  "<<tChainKeys.size() <<"\n";
-                    //         for (auto i : tmpDBKEYut[assId_res.first]){
-                    //             Debug(Debug::WARNING)<<i;
-                    //         }
-                    //         Debug(Debug::WARNING)<<"\n";
-                    //         for (auto i : assId_res.second.alignedQChainTmScores){
-                    //             Debug(Debug::WARNING) << "BAD:    Qchain:  "<<i<<"\n";
-                    //         }
-                    //         for (auto i : assId_res.second.alignedTChainTmScores){
-                    //             Debug(Debug::WARNING) << "BAD:    Tchain:  "<<i<<"\n";
-                    //         }
-                    //     }
-                    // }
                 }
-                // else {
-                //     if (qComplexId != tComplexId ){
-                //         // Debug(Debug::ERROR) << "GOOD:    q:  "<<qcomplexIdToName.at(qComplexId)<<"   t:   "<< tcomplexIdToName.at(tComplexId)<<"\nGOOD:    qtm:  "\t" \
-                //         // <<assId_res.second.qTM<<"   ttm:   "<< assId_res.second.tTM<<"\nGOOD:    U and T:  ";
-                //         // for (auto i : tmpDBKEYut[assId_res.first]){
-                //             // Debug(Debug::ERROR)<<i;
-                //         // }
-                        
-                //         for (auto i : assId_res.second.alignedQChainTmScores){
-                //             if(i>1){
-                //                 Debug(Debug::ERROR) << "\nGOOD:    Qchain:  "<<i<<"\n";
-                //             }
-                //         }
-                //         for (auto i : assId_res.second.alignedTChainTmScores){
-                //             if(i>1){
-                //                 Debug(Debug::ERROR) << "GOOD:    Tchain:  "<<i<<"\n";
-                //             }
-                //         }
-                //     }
-                // }
             }
 
             for (const auto& key : assIdsToDelete) {
@@ -571,9 +643,10 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
     
     resultWriter.close(true);
     resultWrite5.close(par.dbOut == false);
-    qStructDbr.close();
     alnDbr.close();
+    delete qStructDbr;
     delete qDbr;
+    
     if (sameDB == false) {
         delete tDbr;
         delete tStructDbr;

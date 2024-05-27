@@ -127,6 +127,7 @@ public:
     PARAMETER(PARAM_PDB_OUTPUT_MODE)
     PARAMETER(PARAM_COMPLEX_TM_THRESHOLD)
     PARAMETER(PARAM_CHAIN_TM_THRESHOLD)
+    PARAMETER(PARAM_CHAIN_LDDT_THRESHOLD)
     PARAMETER(PARAM_SAME_CHAIN_NUM)
 
     int prefMode;
@@ -153,6 +154,7 @@ public:
     int pdbOutputMode;
     float filtComplexTmThr;
     float filtChainTmThr;
+    float filtChainLddtThr;
     bool sameChainNumber;
 
     static std::vector<int> getOutputFormat(int formatMode, const std::string &outformat, bool &needSequences, bool &needBacktrace, bool &needFullHeaders,
