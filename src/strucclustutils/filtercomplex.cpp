@@ -537,16 +537,16 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
 
     
     
-#pragma omp parallel num_threads(localThreads) 
-    {   
+// #pragma omp parallel num_threads(localThreads) 
+//     {   
         resultToWrite_t result5;
         char buffer[32];
         unsigned int thread_idx = 0;
-        //TODO: set threshold for interface. now 15A
-        int interfaceDistThr = 15;
-#ifdef OPENMP
-        thread_idx = static_cast<unsigned int>(omp_get_thread_num());
-#endif
+        //TODO: set threshold for interface. now 8A
+        int interfaceDistThr = 8;
+// #ifdef OPENMP
+//         thread_idx = static_cast<unsigned int>(omp_get_thread_num());
+// #endif
         std::string result;
         std::map<unsigned int, ComplexFilterCriteria> localComplexMap;
         std::vector<unsigned int> assIdsToDelete;
@@ -554,7 +554,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
         std::vector<unsigned int> selectedAssIDs;
         Matcher::result_t res;
         
-#pragma omp for schedule(dynamic, 1) 
+// #pragma omp for schedule(dynamic, 1) 
         for (size_t queryComplexIdx = 0; queryComplexIdx < qComplexIdVec.size(); queryComplexIdx++) {
             Coordinate16 qcoords;
             Coordinate16 tcoords;   
@@ -587,12 +587,25 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 qComplex.addChain(qchain);
             }
             qComplex.findInterface(interfaceDistThr);
-            #pragma omp critical 
-            {
-                for (Interface interface : qComplex.InterfaceVec){
-                    Debug(Debug::WARNING) << qcomplexIdToName.at(qComplexId) <<"\t" << interface.chainsinInterface.size() <<"\t"<<interface.chainsinInterface[0].chainid <<"\t" << interface.chainsinInterface[1].chainid <<"\n";
+            result5 = "\n"+ qcomplexIdToName.at(qComplexId) + "\n" ;
+            if (qComplex.InterfaceVec.size()> 0){
+                for (auto chain : qComplex.InterfaceVec[0].chainsinInterface){
+                    for (auto calpha : chain.Calphas){
+                        result5 = result5 + " " + std::to_string(calpha.pos);
+                    }
                 }
+                result5 = result5 + "\n";
+                for (auto calpha : qComplex.InterfaceVec[0].chainsinInterface[1].Calphas){
+                    result5 = result5 + " " + std::to_string(calpha.pos);
+                }
+                #pragma omp critical
+                {
+                    resultWrite5.writeData(result5.c_str(), result5.length(), 0);
+                }
+                result5.clear();
             }
+
+            
             for (size_t qChainIdx = 0; qChainIdx < qChainKeys.size(); qChainIdx++ ) {
                 unsigned int qChainKey = qChainKeys[qChainIdx];
                 unsigned int qChainAlnId = alnDbr.getId(qChainKey);
@@ -613,13 +626,13 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 unsigned int qChainAlnId = alnDbr.getId(qChainKey);
                 unsigned int qChainDbId = qDbr->sequenceReader->getId(qChainKey);
                 //handling monomer as singleton
-                if (qChainAlnId == NOT_AVAILABLE_CHAIN_KEY){
-                    char *outpos = Itoa::u32toa_sse2(qComplexId, buffer);
-                    result.append(buffer, (outpos - buffer - 1));
-                    result.push_back('\n');
-                    result5.append(qcomplexIdToName.at(qComplexId) + "\t" + tcomplexIdToName.at(qComplexId) + "\t1.000000\t1.000000\t1.000000\t1.000000\n");
-                    break;
-                }
+                // if (qChainAlnId == NOT_AVAILABLE_CHAIN_KEY){
+                //     char *outpos = Itoa::u32toa_sse2(qComplexId, buffer);
+                //     result.append(buffer, (outpos - buffer - 1));
+                //     result.push_back('\n');
+                //     result5.append(qcomplexIdToName.at(qComplexId) + "\t" + tcomplexIdToName.at(qComplexId) + "\t1.000000\t1.000000\t1.000000\t1.000000\n");
+                //     break;
+                // }
                 
                 char *data = alnDbr.getData(qChainAlnId, thread_idx);
                 while (*data != '\0' ) {
@@ -746,7 +759,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 char *outpos = Itoa::u32toa_sse2(tComplexId, buffer);
                 result.append(buffer, (outpos - buffer - 1));
                 result.push_back('\n');
-                result5.append(qcomplexIdToName.at(qComplexId) + "\t" + tcomplexIdToName.at(tComplexId) + "\t" + std::to_string(localComplexMap.at(assId).qCov) + "\t" + std::to_string(localComplexMap.at(assId).tCov) + "\t"+ std::to_string(localComplexMap.at(assId).qTM)+"\t"+ std::to_string(localComplexMap.at(assId).tTM)+ "\n");
             }
             #pragma omp critical
             {
@@ -758,12 +770,8 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             cmplIdToBestAssId.clear();
             selectedAssIDs.clear();
         } // for end
-        #pragma omp critical
-        {
-            resultWrite5.writeData(result5.c_str(), result5.length(), 0);
-        }
-        result5.clear();
-    } // MP end
+        
+    // } // MP end
     for (auto &pair : qComplexIdResult){
         resultWriter.writeData(pair.second.c_str(), pair.second.length(), pair.first);
     }
