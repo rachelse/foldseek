@@ -14,6 +14,10 @@ void setMultimerClusterDefaults(LocalParameters *p) {
     p->filterMode=0;
 }
 
+void setMultimerClusterMustPassAlong(Parameters *p) {
+    p->removeTmpFiles = false;
+}
+
 int multimercluster(int argc, const char **argv, const Command &command) {
     LocalParameters &par = LocalParameters::getLocalInstance();
     par.PARAM_ADD_BACKTRACE.addCategory(MMseqsParameter::COMMAND_EXPERT); //align
@@ -47,10 +51,11 @@ int multimercluster(int argc, const char **argv, const Command &command) {
     cmd.addVariable("INPUT", par.filenames.back().c_str());
     par.filenames.pop_back();
 
+    cmd.addVariable("REMOVE_TMP", par.removeTmpFiles ? "TRUE" : NULL);
+    setMultimerClusterMustPassAlong(&par);
     cmd.addVariable("MULTIMERSEARCH_PAR", par.createParameterString(par.multimersearchworkflow, true).c_str()); 
     cmd.addVariable("FILTERMULTIMER_PAR", par.createParameterString(par.filtermultimer).c_str());    
     cmd.addVariable("CLUSTER_PAR", par.createParameterString(par.clust).c_str());
-    cmd.addVariable("REMOVE_TMP", par.removeTmpFiles ? "TRUE" : NULL);
     cmd.addVariable("VERBOSITY_PAR", par.createParameterString(par.onlyverbosity).c_str());
     // cmd.addVariable("VERBCOMPRESS", par.createParameterString(par.verbandcompression).c_str());
 
