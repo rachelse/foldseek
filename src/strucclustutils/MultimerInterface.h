@@ -15,7 +15,7 @@ public:
     // static constexpr float CUTOFF = 15.0;
     static constexpr float INF = std::numeric_limits<float>::infinity();
 
-    Interface(float cutoff): cutoff(cutoff) {};
+    Interface(float cutoff);
     ~Interface();
 
     struct Grid {
@@ -98,6 +98,8 @@ public:
     void getinterface(unsigned int targetLen, int qStartPos, int tStartPos, const std::string &backtrace, float *tx, float *ty, float *tz);
 
 private:
+    unsigned int chainIdx1, chainIdx2;
+    unsigned int queryLength, targetLength;
     float cutoff;
     float **query_coordinates, **target_coordinates;
     bool **dists_to_score;

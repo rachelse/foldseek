@@ -523,7 +523,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     float* qdata1 = qcoords.read(qcadata1, qChainLen1, qCaLength1);
                     Interface *interface = NULL;
                     interface = new Interface(cutoff);  
-                    interface->initQuery(qChainLen1, qdata1, &qdadta1[qChainLen1], &qdadta1[qChainLen1 + qChainLen1]);
+                    interface->initQuery(qChainLen1, qdata1, &qdadta1[qChainLen1], &qdadta1[qChainLen1 + qChainLen1], qChainIdx1);
                     for (size_t qChainIdx2 = qChainIdx1+1; qChainIdx2 < qChainKeys.size(); qChainIdx2++ ){
                         unsigned int qChainKey2 = qChainKeys[qChainIdx2];
                         unsigned int qChainDbId2 = qDbr->sequenceReader->getId(qChainKey2);
@@ -531,7 +531,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         size_t qCaLength2 = qStructDbr.getEntryLen(qChainDbId2);
                         size_t qChainLen2 = qDbr->sequenceReader->getSeqLen(qChainDbId2);   
                         float* qdata2 = qcoords.read(qcadata2, qChainLen2, qCaLength2);
-                        interface->getinterface(qChainLen2, qdata2, &qdadta1[qChainLen2], &qdata2[qChainLen2 + qChainLen2], qInterfaceIndex);
+                        interface->getinterface(qChainLen2, qdata2, &qdadta1[qChainLen2], &qdata2[qChainLen2 + qChainLen2], qInterfaceIndex, qChainIdx2);
 
                     }
                 }
