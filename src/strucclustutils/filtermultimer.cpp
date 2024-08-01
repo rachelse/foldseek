@@ -175,6 +175,7 @@ public:
         // const bool conformationOK = isConformation(filterMode, chainTmThr);
         // return (covOK && TmOK && chainNumOK && chainTmOK);
          return (covOK && TmOK && chainTmOK && lddtOK);
+        //  return (covOK && TmOK && chainTmOK );
     }
 
     void updateAln(unsigned int qAlnLen, unsigned int tAlnLen) {
@@ -246,20 +247,23 @@ public:
     }
 
     void computeInterfaceLddt() {
-        size_t alnLen = 0;
-        for (size_t chainIdx = 0; chainIdx < qAlnChainKeys.size(); chainIdx++) {
-            size_t qChainKey = qAlnChainKeys[chainIdx];
-            for(size_t residueidx = 0; residueidx< qnewInterfaceIndex[qChainKey].size(); residueidx++){
+        unsigned int alnLen = 0;
+        for (unsigned int chainIdx = 0; chainIdx < qAlnChainKeys.size(); chainIdx++) {
+            unsigned int qChainKey = qAlnChainKeys[chainIdx];
+            for(unsigned int residueidx = 0; residueidx< qnewInterfaceIndex[qChainKey].size(); residueidx++){
                 alnLen ++;
             }
         }
-        float* qInterface = new float[alnLen];
-        float* tInterface = new float[alnLen];
+        if (alnLen == 0){
+            return;
+        }
+        float* qInterface = new float[alnLen*3];
+        float* tInterface = new float[alnLen*3];
 
-        size_t idx = 0;
+        unsigned int idx = 0;
         for (size_t chainIdx = 0; chainIdx < qAlnChainKeys.size(); chainIdx++) {
-            size_t qChainKey = qAlnChainKeys[chainIdx];
-            size_t tChainKey = tAlnChainKeys[chainIdx];
+            unsigned int qChainKey = qAlnChainKeys[chainIdx];
+            unsigned int tChainKey = tAlnChainKeys[chainIdx];
             for(size_t residueidx = 0; residueidx< qnewInterfaceIndex[qChainKey].size(); residueidx++){
                 std::vector<std::tuple<float, float, float>> qVector(qnewInterfaceIndex[qChainKey].begin(), qnewInterfaceIndex[qChainKey].end());
                 std::vector<std::tuple<float, float, float>> tVector(tInterfaceIndex[tChainKey].begin(), tInterfaceIndex[tChainKey].end());
@@ -271,6 +275,8 @@ public:
                 tInterface[alnLen + idx] = std::get<1>(tVector[residueidx]);
                 tInterface[alnLen*2 + idx] = std::get<2>(tVector[residueidx]);
                 idx ++;
+                qVector.clear();
+                tVector.clear();
             }
 
         }
@@ -278,10 +284,12 @@ public:
         std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
         lddtcalculator = new LDDTCalculator(alnLen+1, alnLen+1);
-        lddtcalculator->initQuery(alnLen, qInterface, &qInterface[alnLen], &qInterface[alnLen*2]);
-        LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(alnLen, 0, 0, bt, tInterface, &tInterface[alnLen], &tInterface[alnLen*2]);
+        lddtcalculator->initQuery(alnLen, qInterface, &qInterface[alnLen], &qInterface[alnLen + alnLen]);
+        LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(alnLen, 0, 0, bt, tInterface, &tInterface[alnLen], &tInterface[alnLen + alnLen]);
         interfaceLddt = lddtres.avgLddtScore;
         delete lddtcalculator;
+        delete[] qInterface;
+        delete[] tInterface;
     }
 };
 
