@@ -18,6 +18,8 @@ set(strucclustutils_source_files
         strucclustutils/createmultimerreport.cpp
         strucclustutils/MultimerUtil.h
         strucclustutils/expandmultimer.cpp
+        strucclustutils/MultimerInterface.h
+        strucclustutils/MultimerInterface.cpp
         PARENT_SCOPE
         )
 

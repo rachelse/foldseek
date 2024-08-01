@@ -14,9 +14,8 @@ class Interface {
 public:
     // static constexpr float CUTOFF = 15.0;
     static constexpr float INF = std::numeric_limits<float>::infinity();
-
-    Interface(float cutoff);
-    ~Interface();
+    unsigned int chainIdx1, chainIdx2;
+    unsigned int queryLength, targetLength;
 
     struct Grid {
         Grid() {};
@@ -92,18 +91,20 @@ public:
         int num_cells[3];
         std::vector<std::pair<std::tuple<int, int, int>, int>> box;
         std::vector<std::pair<std::tuple<int, int, int>, std::pair<size_t, size_t>>> box_index;
+    private:
+        float cutoff;
     };
+    Interface(float cutoff);
+    ~Interface();
 
-    void initQuery(unsigned int queryLen, float *qx, float *qy, float *qz, std::vector<std::set<unsigned int>>& qInerfaceIndex);
-    void getinterface(unsigned int targetLen, int qStartPos, int tStartPos, const std::string &backtrace, float *tx, float *ty, float *tz);
+    void initQuery(unsigned int queryLen, float *qx, float *qy, float *qz, size_t chainidx1 );
+    void getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::map<unsigned int, std::map<unsigned int, std::tuple<float, float, float>>> &qInterfaceIndex, size_t chainidx2);
 
 private:
-    unsigned int chainIdx1, chainIdx2;
-    unsigned int queryLength, targetLength;
     float cutoff;
     float **query_coordinates, **target_coordinates;
     bool **dists_to_score;
-    Interface::Grid query_grid;
+    Interface::Grid query_grid, target_grid;
 };
 
 #endif

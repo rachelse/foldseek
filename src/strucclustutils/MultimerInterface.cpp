@@ -2,7 +2,7 @@
 #include <string.h>
 #include <algorithm>
 
-Interface::Interface(float cutoff) :cutoff(cutoff) {}
+Interface::Interface(float cutoff) : cutoff(cutoff) {}
 
 Interface::~Interface() {
     if(query_coordinates) {
@@ -33,7 +33,7 @@ void Interface::initQuery(unsigned int queryLength, float *qx, float *qy, float 
     query_grid = Grid(query_coordinates, queryLength);
 }
 
-void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::vector<std::set<unsigned int>> &qInterfaceIndex, size_t chainidx2 ) {
+void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::map<unsigned int, std::map<unsigned int, std::tuple<float, float, float>>> &qInterfaceIndex, size_t chainidx2 ) {
     targetLength = targetLen;
     chainIdx2 = chainidx2;
     target_coordinates = new float*[targetLength];
@@ -52,33 +52,35 @@ void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float
     int dz[DIR] = {0, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1};
     std::vector<std::tuple<int, int, int>> tboxes;
     std::map<std::tuple<int, int, int>, bool> visited_boxes;
-    for (unsigned int target_idx = 0; target_idx < targetLength){
+    for (unsigned int target_idx = 0; target_idx < targetLength; target_idx++){
         std::tuple<int, int, int> tbox_coord = target_grid.getGridCoordinates(target_coordinates[target_idx]);
         tboxes.push_back(tbox_coord);
     }
-    for (unsigned int query_idx = 0; query_idx < queryLength){
+    for (unsigned int query_idx = 0; query_idx < queryLength; query_idx++){
         std::tuple<int, int, int> qbox_coord = query_grid.getGridCoordinates(query_coordinates[query_idx]);
         if (visited_boxes.find(qbox_coord) != visited_boxes.end()) {
             continue;
         }
         visited_boxes[qbox_coord] = true;
-        std::pair<size_t, size_t> box_members = query_grid.getBoxMemberRange(box_coord);
+        std::pair<size_t, size_t> box_members = query_grid.getBoxMemberRange(qbox_coord);
+        std::vector<unsigned int> visitedidx1, visitedidx2;
         for (int dir = 0; dir < DIR; dir++) {
-            std::tuple<int, int, int> key = std::make_tuple(std::get<0>(box_coord) + dx[dir], std::get<1>(box_coord) + dy[dir], std::get<2>(box_coord) + dz[dir]);
+            std::tuple<int, int, int> key = std::make_tuple(std::get<0>(qbox_coord) + dx[dir], std::get<1>(qbox_coord) + dy[dir], std::get<2>(qbox_coord) + dz[dir]);
             std::pair<size_t, size_t> neighbor_members = target_grid.getBoxMemberRange(key);
             if (neighbor_members.second != 0){
                 for (size_t i = box_members.first; i < box_members.second; i++){
-                    int index1 = query_grid.box[i].second;
-                    if (qInterfaceIndex[chainIdx1].find(index1) == qInterfaceIndex[chainIdx1].end()){
-                        qInterfaceIndex[chainIdx1].insert(index1);
+                    unsigned int index1 = query_grid.box[i].second;
+                    if (std::find(visitedidx1.begin(), visitedidx1.end(), index1) == visitedidx1.end()){
+                        qInterfaceIndex[chainIdx1][index1] = std::make_tuple(query_coordinates[index1][0], query_coordinates[index1][1], query_coordinates[index1][2]);
                     }
+                    visitedidx1.push_back(index1);
                 }
-                size_t i2 = (dir == 0) ? i + 1 : neighbor_members.first;
-                for (; i2 < neighbor_members.second; i2++) {
+                for (size_t i2 = neighbor_members.first; i2 < neighbor_members.second; i2++) {
                     int index2 = target_grid.box[i2].second;
-                    if (qInterfaceIndex[chainIdx2].find(index2) == qInterfaceIndex[chainIdx2].end()){
-                        qInterfaceIndex[chainIdx2].insert(index2);
+                    if (std::find(visitedidx2.begin(), visitedidx2.end(), index2) == visitedidx2.end()){
+                        qInterfaceIndex[chainIdx2][index2] = std::make_tuple(target_coordinates[index2][0], target_coordinates[index2][1], target_coordinates[index2][2]);
                     }
+                    visitedidx2.push_back(index2);
                 }
             }
         }
