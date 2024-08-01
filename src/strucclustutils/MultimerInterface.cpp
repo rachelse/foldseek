@@ -1,9 +1,13 @@
 #include "MultimerInterface.h"
-#include "Debug.h"
 #include <string.h>
 #include <algorithm>
 
-Interface::Interface(float cutoff, unsigned int queryLength) : cutoff(cutoff), queryLength(queryLength) {}
+Interface::Interface(unsigned int queryLength) :queryLength(queryLength) {
+    query_coordinates = new float*[queryLength];
+    for(unsigned int i = 0; i < queryLength; i++) {
+        query_coordinates[i] = new float[3];
+    }
+}
 
 Interface::~Interface() {
     if(query_coordinates) {
@@ -12,19 +16,9 @@ Interface::~Interface() {
         }
         delete[] query_coordinates;
     }
-    if(target_coordinates) {
-        for(unsigned int i = 0; i < targetLength; i++) {
-            delete[] target_coordinates[i];
-        }
-        delete[] target_coordinates;
-    }
 }
 void Interface::initQuery(float *qx, float *qy, float *qz, size_t chainidx1 ) {
     chainIdx1 = chainidx1;
-    query_coordinates = new float*[queryLength];
-    for(unsigned int i = 0; i < queryLength; i++) {
-        query_coordinates[i] = new float[3];
-    }
     for(unsigned int i = 0; i < queryLength; i++) {
         query_coordinates[i][0] = qx[i];
         query_coordinates[i][1] = qy[i];
@@ -63,26 +57,31 @@ void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float
         }
         visited_boxes[qbox_coord] = true;
         std::pair<size_t, size_t> box_members = query_grid.getBoxMemberRange(qbox_coord);
-        std::vector<unsigned int> visitedidx1, visitedidx2;
         for (int dir = 0; dir < DIR; dir++) {
             std::tuple<int, int, int> key = std::make_tuple(std::get<0>(qbox_coord) + dx[dir], std::get<1>(qbox_coord) + dy[dir], std::get<2>(qbox_coord) + dz[dir]);
             std::pair<size_t, size_t> neighbor_members = target_grid.getBoxMemberRange(key);
-            if (neighbor_members.second != 0){
+            if (std::find(tboxes.begin(), tboxes.end(), key) != tboxes.end()){
                 for (size_t i = box_members.first; i < box_members.second; i++){
                     unsigned int index1 = query_grid.box[i].second;
-                    if (std::find(visitedidx1.begin(), visitedidx1.end(), index1) == visitedidx1.end()){
+                    if (qInterfaceIndex[chainIdx1].find(index1) == qInterfaceIndex[chainIdx1].end()){
                         qInterfaceIndex[chainIdx1][index1] = std::make_tuple(query_coordinates[index1][0], query_coordinates[index1][1], query_coordinates[index1][2]);
                     }
-                    visitedidx1.push_back(index1);
                 }
                 for (size_t i2 = neighbor_members.first; i2 < neighbor_members.second; i2++) {
                     int index2 = target_grid.box[i2].second;
-                    if (std::find(visitedidx2.begin(), visitedidx2.end(), index2) == visitedidx2.end()){
+                    if (qInterfaceIndex[chainIdx2].find(index2) == qInterfaceIndex[chainIdx2].end()){
                         qInterfaceIndex[chainIdx2][index2] = std::make_tuple(target_coordinates[index2][0], target_coordinates[index2][1], target_coordinates[index2][2]);
                     }
-                    visitedidx2.push_back(index2);
                 }
             }
         }
     }
+    if(target_coordinates) {
+        for(unsigned int i = 0; i < targetLength; i++) {
+            delete[] target_coordinates[i];
+        }
+        delete[] target_coordinates;
+    }
+    tboxes.clear();
+    visited_boxes.clear();
 }

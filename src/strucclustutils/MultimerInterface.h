@@ -6,13 +6,14 @@
 #include <limits>
 #include <vector>
 #include "FastSort.h"
+#include "Debug.h"
 
 #ifndef MULTIMERINTERFACE_H
 #define MULTIMERINTERFACE_H
 
 class Interface {
 public:
-    // static constexpr float CUTOFF = 15.0;
+    static constexpr float CUTOFF = 3.0;
     static constexpr float INF = std::numeric_limits<float>::infinity();
 
     struct Grid {
@@ -23,6 +24,8 @@ public:
                 for(int dim = 0; dim < 3; dim++) {
                     if(m1[i][dim] < min[dim]) min[dim] = m1[i][dim];
                     if(m1[i][dim] > max[dim]) max[dim] = m1[i][dim];
+                    // if(m1[i][dim] > min[dim]) min[dim] = m1[i][dim];
+                    // if(m1[i][dim] < max[dim]) max[dim] = m1[i][dim];
                 }
             }
             box.clear();
@@ -30,7 +33,7 @@ public:
             for(int i = 0; i < (int)queryLength; i++) {
                 int box_coord[3];
                 for(int dim = 0; dim < 3; dim++) {
-                    box_coord[dim] = (int)((m1[i][dim] - min[dim]) / cutoff);
+                    box_coord[dim] = (int)((m1[i][dim] - min[dim]) / CUTOFF);
                 }
                 box.emplace_back(std::make_tuple(box_coord[0], box_coord[1], box_coord[2]), i);
             }
@@ -47,15 +50,12 @@ public:
                 }
             }
             box_index.push_back(std::make_pair(currBoxKey, std::make_pair(currBoxStart, box.size())));
-            for(int dim = 0; dim < 3; dim++) {
-                num_cells[dim] = (int)((max[dim]-min[dim])/cutoff) + 1;
-            }
         }
 
         std::tuple<int, int, int> getGridCoordinates(const float *point) {
             int box_coord[3];
             for(int dim = 0; dim < 3; dim++) {
-                box_coord[dim] = (int)((point[dim] - min[dim]) / cutoff);
+                box_coord[dim] = (int)((point[dim] - min[dim]) / CUTOFF);
             }
             return std::make_tuple(box_coord[0], box_coord[1], box_coord[2]);
         }
@@ -86,13 +86,10 @@ public:
 
         float min[3] = {INF, INF, INF};
         float max[3] = {-INF, -INF, -INF};
-        int num_cells[3];
         std::vector<std::pair<std::tuple<int, int, int>, int>> box;
         std::vector<std::pair<std::tuple<int, int, int>, std::pair<size_t, size_t>>> box_index;
-    private:
-        float cutoff;
     };
-    Interface(float cutoff, unsigned int queryLen);
+    Interface(unsigned int queryLen);
     ~Interface();
 
     void initQuery(float *qx, float *qy, float *qz, size_t chainidx1 );
@@ -101,7 +98,6 @@ public:
 private:
     unsigned int chainIdx1, chainIdx2;
     unsigned int queryLength, targetLength;
-    float cutoff;
     float **query_coordinates, **target_coordinates;
     Interface::Grid query_grid, target_grid;
 };

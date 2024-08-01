@@ -226,7 +226,6 @@ public:
             double di = BasicFunction::dist(qm.x[k], qm.y[k], qm.z[k], tmt.x[k], tmt.y[k], tmt.z[k]);
             tmscore += 1/(1+di/d02);
         }
-        unsigned int i;
         qAlnChainTms.push_back(tmscore/qLen);
         tAlnChainTms.push_back(tmscore/tLen);
         for (auto &qindexpair : qInterfaceIndex[qChainKey]){
@@ -236,12 +235,9 @@ public:
                 if (qnewInterfaceIndex[qChainKey].find(qindexpair.second) == qnewInterfaceIndex[qChainKey].end()){
                     tInterfaceIndex[tChainKey].insert(std::make_tuple(tmt.x[tindex], tmt.y[tindex], tmt.z[tindex]));
                     qnewInterfaceIndex[qChainKey].insert(qindexpair.second);
-                    i++;
                 }
             }
         }
-        Debug(Debug::WARNING)<<i<<"\n";
-       
     }
     void calcCov(unsigned int qLen, unsigned int tLen) {
         qCov = static_cast<float>(qTotalAlnLen) / static_cast<float>(qLen);
@@ -256,8 +252,6 @@ public:
                 alnLen ++;
             }
         }
-        Debug(Debug::WARNING)<<alnLen<<"\n";
-        
         if (alnLen == 0){
             return;
         }
@@ -482,7 +476,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
     {   
         resultToWrite_t result5;
         char buffer[32];
-        float cutoff = 1;
         unsigned int thread_idx = 0;
 #ifdef OPENMP
         thread_idx = static_cast<unsigned int>(omp_get_thread_num());
@@ -512,7 +505,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     size_t qChainLen1 = qDbr->sequenceReader->getSeqLen(qChainDbId1);   
                     float* qdata1 = qcoords.read(qcadata1, qChainLen1, qCaLength1);
                     Interface *interface = NULL;
-                    interface = new Interface(cutoff, qChainLen1);  
+                    interface = new Interface(qChainLen1);  
                     interface->initQuery(qdata1, &qdata1[qChainLen1], &qdata1[qChainLen1 + qChainLen1], qChainKey1);
                     for (size_t qChainIdx2 = qChainIdx1+1; qChainIdx2 < qChainKeys.size(); qChainIdx2++ ){
                         unsigned int qChainKey2 = qChainKeys[qChainIdx2];
@@ -524,7 +517,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         interface->getinterface(qChainLen2, qdata2, &qdata2[qChainLen2], &qdata2[qChainLen2 + qChainLen2], qInterfaceIndex, qChainKey2);
                         // #pragma omp critical
                         // {
-                        //     Debug(Debug::WARNING)<<qInterfaceIndex[qChainKey1].size()<<"\n";
+                        //     Debug(Debug::WARNING)<<qChainLen1<<"\t"<<qInterfaceIndex[qChainKey1].size()<<"\n";
                         // }
                     }
                     delete interface;
