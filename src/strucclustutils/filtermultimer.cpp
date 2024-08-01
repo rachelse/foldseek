@@ -74,7 +74,7 @@ public:
 
     ComplexFilterCriteria() {}
     ComplexFilterCriteria(unsigned int targetComplexId, double qTm, double tTm, float tstring[3], float ustring[3][3]) :
-                            targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), interfaceLddt(0), qTm(qTm), tTm(tTm) {
+                            targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), qTm(qTm), tTm(tTm) {
                                 std::copy(tstring, tstring + 3, t);
                                 for (int i = 0; i < 3; i++) {
                                     std::copy(ustring[i], ustring[i] + 3, u[i]);
@@ -207,7 +207,7 @@ public:
                 qi++;
                 ti++;
                 mi++;
-                query_to_target[qi] = ti;
+                query_to_target[qi] = mi;
             }
             else if (backtrace[btPos] == 'I') {
                 notalignedq.push_back(qi);
@@ -215,18 +215,6 @@ public:
             }
             else {
                 ti++;
-            }
-        }
-        std::vector<unsigned int> visitedt;
-        for (auto &qindexpair : qInterfaceIndex[qChainKey]){
-            size_t qindex = qindexpair.first;
-            if (std::find(notalignedq.begin(), notalignedq.end(), qindex) == notalignedq.end()){
-                size_t tindex = query_to_target[qindex];
-                if (std::find(visitedt.begin(), visitedt.end(), tindex) == visitedt.end()){
-                    tInterfaceIndex[tChainKey].insert(std::make_tuple(tdata[tindex], tdata[tLen + tindex], tdata[2*tLen + tindex]));
-                    qnewInterfaceIndex[qChainKey].insert(qindexpair.second);
-                    visitedt.push_back(tindex);
-                }
             }
         }
         double tmscore = 0;
@@ -238,8 +226,22 @@ public:
             double di = BasicFunction::dist(qm.x[k], qm.y[k], qm.z[k], tmt.x[k], tmt.y[k], tmt.z[k]);
             tmscore += 1/(1+di/d02);
         }
+        unsigned int i;
         qAlnChainTms.push_back(tmscore/qLen);
         tAlnChainTms.push_back(tmscore/tLen);
+        for (auto &qindexpair : qInterfaceIndex[qChainKey]){
+            size_t qindex = qindexpair.first;
+            if (std::find(notalignedq.begin(), notalignedq.end(), qindex) == notalignedq.end()){
+                size_t tindex = query_to_target[qindex];
+                if (qnewInterfaceIndex[qChainKey].find(qindexpair.second) == qnewInterfaceIndex[qChainKey].end()){
+                    tInterfaceIndex[tChainKey].insert(std::make_tuple(tmt.x[tindex], tmt.y[tindex], tmt.z[tindex]));
+                    qnewInterfaceIndex[qChainKey].insert(qindexpair.second);
+                    i++;
+                }
+            }
+        }
+        Debug(Debug::WARNING)<<i<<"\n";
+       
     }
     void calcCov(unsigned int qLen, unsigned int tLen) {
         qCov = static_cast<float>(qTotalAlnLen) / static_cast<float>(qLen);
@@ -254,6 +256,8 @@ public:
                 alnLen ++;
             }
         }
+        Debug(Debug::WARNING)<<alnLen<<"\n";
+        
         if (alnLen == 0){
             return;
         }
@@ -275,12 +279,10 @@ public:
                 tInterface[alnLen + idx] = std::get<1>(tVector[residueidx]);
                 tInterface[alnLen*2 + idx] = std::get<2>(tVector[residueidx]);
                 idx ++;
-                qVector.clear();
-                tVector.clear();
             }
 
         }
-        
+       
         std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
         lddtcalculator = new LDDTCalculator(alnLen+1, alnLen+1);
@@ -480,7 +482,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
     {   
         resultToWrite_t result5;
         char buffer[32];
-        float cutoff = 8;
+        float cutoff = 1;
         unsigned int thread_idx = 0;
 #ifdef OPENMP
         thread_idx = static_cast<unsigned int>(omp_get_thread_num());
@@ -510,8 +512,8 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     size_t qChainLen1 = qDbr->sequenceReader->getSeqLen(qChainDbId1);   
                     float* qdata1 = qcoords.read(qcadata1, qChainLen1, qCaLength1);
                     Interface *interface = NULL;
-                    interface = new Interface(cutoff);  
-                    interface->initQuery(qChainLen1, qdata1, &qdata1[qChainLen1], &qdata1[qChainLen1 + qChainLen1], qChainKey1);
+                    interface = new Interface(cutoff, qChainLen1);  
+                    interface->initQuery(qdata1, &qdata1[qChainLen1], &qdata1[qChainLen1 + qChainLen1], qChainKey1);
                     for (size_t qChainIdx2 = qChainIdx1+1; qChainIdx2 < qChainKeys.size(); qChainIdx2++ ){
                         unsigned int qChainKey2 = qChainKeys[qChainIdx2];
                         unsigned int qChainDbId2 = qDbr->sequenceReader->getId(qChainKey2);
@@ -520,6 +522,10 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         size_t qChainLen2 = qDbr->sequenceReader->getSeqLen(qChainDbId2);   
                         float* qdata2 = qcoords.read(qcadata2, qChainLen2, qCaLength2);
                         interface->getinterface(qChainLen2, qdata2, &qdata2[qChainLen2], &qdata2[qChainLen2 + qChainLen2], qInterfaceIndex, qChainKey2);
+                        // #pragma omp critical
+                        // {
+                        //     Debug(Debug::WARNING)<<qInterfaceIndex[qChainKey1].size()<<"\n";
+                        // }
                     }
                     delete interface;
                 }

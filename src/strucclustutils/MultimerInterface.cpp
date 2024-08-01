@@ -1,8 +1,9 @@
 #include "MultimerInterface.h"
+#include "Debug.h"
 #include <string.h>
 #include <algorithm>
 
-Interface::Interface(float cutoff) : cutoff(cutoff) {}
+Interface::Interface(float cutoff, unsigned int queryLength) : cutoff(cutoff), queryLength(queryLength) {}
 
 Interface::~Interface() {
     if(query_coordinates) {
@@ -18,8 +19,7 @@ Interface::~Interface() {
         delete[] target_coordinates;
     }
 }
-void Interface::initQuery(unsigned int queryLength, float *qx, float *qy, float *qz, size_t chainidx1 ) {
-    queryLength = queryLength;
+void Interface::initQuery(float *qx, float *qy, float *qz, size_t chainidx1 ) {
     chainIdx1 = chainidx1;
     query_coordinates = new float*[queryLength];
     for(unsigned int i = 0; i < queryLength; i++) {
