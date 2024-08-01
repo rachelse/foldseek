@@ -66,11 +66,10 @@ public:
     // per chain : criteria for chainTmThr & lddtThr
     std::vector<unsigned int> qAlnChainKeys;
     std::vector<unsigned int> tAlnChainKeys;
-    std::vector<std::vector<float>> qAlnChains;
-    std::vector<std::vector<float>> tAlnChains;
-
     std::vector<double> qAlnChainTms;
     std::vector<double> tAlnChainTms;
+    std::vector<std::vector<float>> qAlnChains;
+    std::vector<std::vector<float>> tAlnChains;
     std::map<unsigned int, std::set<std::tuple<float, float, float>>> tInterfaceIndex, qnewInterfaceIndex;
 
     ComplexFilterCriteria() {}
@@ -88,6 +87,8 @@ public:
         tAlnChainKeys.clear();
         qAlnChains.clear();
         tAlnChains.clear();
+        tInterfaceIndex.clear();
+        qnewInterfaceIndex.clear();
     }
 
     bool hasTm(float TmThr, int covMode){
@@ -237,7 +238,7 @@ public:
             tmscore += 1/(1+di/d02);
         }
         qAlnChainTms.push_back(tmscore/qLen);
-        tAlnChainTms.push_back(tmscore/ tLen);
+        tAlnChainTms.push_back(tmscore/tLen);
     }
     void calcCov(unsigned int qLen, unsigned int tLen) {
         qCov = static_cast<float>(qTotalAlnLen) / static_cast<float>(qLen);
@@ -511,8 +512,8 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         size_t qChainLen2 = qDbr->sequenceReader->getSeqLen(qChainDbId2);   
                         float* qdata2 = qcoords.read(qcadata2, qChainLen2, qCaLength2);
                         interface->getinterface(qChainLen2, qdata2, &qdata2[qChainLen2], &qdata2[qChainLen2 + qChainLen2], qInterfaceIndex, qChainKey2);
-
                     }
+                    delete interface;
                 }
             }
 
@@ -635,6 +636,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             localComplexMap.clear();
             cmplIdToBestAssId.clear();
             selectedAssIDs.clear();
+            qInterfaceIndex.clear();
         } // for end
         #pragma omp critical
         {
