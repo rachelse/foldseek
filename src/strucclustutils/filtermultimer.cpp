@@ -10,6 +10,7 @@
 #include "Coordinate16.h"
 #include "tmalign/basic_fun.h"
 #include "MultimerUtil.h"
+#include "MultimerInterface.h"
 #include "LDDT.h"
 #include <map>
 #include <set>
@@ -31,23 +32,6 @@ struct Complex {
     Complex() : complexId(0), nChain(0), complexLength(0), complexName("") {}
     ~Complex() {
         chainKeys.clear();
-    }
-};
-
-struct AlignedCoordinate {
-    std::vector<float> x;
-    std::vector<float> y;
-    std::vector<float> z;
-    AlignedCoordinate() {}
-    AlignedCoordinate(size_t size) {
-        x.resize(size);
-        y.resize(size);
-        z.resize(size);
-    }
-    ~AlignedCoordinate() {
-        x.clear();
-        y.clear();
-        z.clear();
     }
 };
 
@@ -254,59 +238,35 @@ public:
         tCov = static_cast<float>(tTotalAlnLen) / static_cast<float>(tLen);
     }
 
-    void computeInterfaceLddt(float threshold = 8) {
-        float t2 = threshold * threshold;
-        std::vector<std::set<unsigned int>> qInterfacePos(qAlnChains.size()); // chainIdx, resIdx
-        unsigned int intLen = 0;
-        // Find and save interface Coordinates
-        for (size_t chainIdx1 = 0; chainIdx1 < qAlnChains.size(); chainIdx1++) {
-            for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < qAlnChains.size(); chainIdx2++) {
-                AlignedCoordinate qChain1 = qAlnChains[chainIdx1];
-                AlignedCoordinate qChain2 = qAlnChains[chainIdx2];
-                AlignedCoordinate tChain1 = tAlnChains[chainIdx1];
-                AlignedCoordinate tChain2 = tAlnChains[chainIdx2];
-                for (size_t resIdx1 = 0; resIdx1 < qChain1.x.size(); resIdx1++) {
-                    for (size_t resIdx2 = 0; resIdx2 < qChain2.x.size(); resIdx2++) {
-                        float dist = BasicFunction::dist(qChain1.x[resIdx1], qChain1.y[resIdx1], qChain1.z[resIdx1],
-                                                         qChain2.x[resIdx2], qChain2.y[resIdx2], qChain2.z[resIdx2]);
-                        if (dist < t2) {
-                            if (qInterfacePos[chainIdx1].find(resIdx1) == qInterfacePos[chainIdx1].end()) {
-                                qInterfacePos[chainIdx1].insert(resIdx1);
-                                intLen++;
-                            }
-                            if (qInterfacePos[chainIdx2].find(resIdx2) == qInterfacePos[chainIdx2].end()) {
-                                qInterfacePos[chainIdx2].insert(resIdx2);
-                                intLen++;
-                            }
-                        }
-                    }
-                }
+    void computeInterfaceLddt() {
+        unsigned int alnLen = 0;
+        for (size_t chainIdx = 0; chainIdx < qAlnChains.size(); chainIdx++) {
+            AlignedCoordinate qChain = qAlnChains[chainIdx];
+            for (size_t resIdx = 0; resIdx < qChain.x.size(); resIdx++) {
+                alnLen ++;
             }
         }
-
-        if (intLen == 0) {
+        if (alnLen == 0) {
             return;
         }
-        AlignedCoordinate qInterface(intLen);
-        AlignedCoordinate tInterface(intLen);
-
-        size_t idx = 0;
-        for (size_t chainIdx = 0; chainIdx < qInterfacePos.size(); chainIdx++) {
-            for (size_t resIdx: qInterfacePos[chainIdx]) {
-                qInterface.x[idx] = qAlnChains[chainIdx].x[resIdx];
-                qInterface.y[idx] = qAlnChains[chainIdx].y[resIdx];
-                qInterface.z[idx] = qAlnChains[chainIdx].z[resIdx];
-                tInterface.x[idx] = tAlnChains[chainIdx].x[resIdx];
-                tInterface.y[idx] = tAlnChains[chainIdx].y[resIdx];
-                tInterface.z[idx] = tAlnChains[chainIdx].z[resIdx];
-                idx++;
+        AlignedCoordinate qInterface(alnLen);
+        AlignedCoordinate tInterface(alnLen);
+        Interface *interface = NULL;
+        for (size_t chainIdx1 = 0; chainIdx1 < qAlnChains.size() - 1; chainIdx1++) {
+            AlignedCoordinate qChain1 = qAlnChains[chainIdx1];
+            interface = new Interface(qChain1.x.size()); 
+            interface->initQuery(&qChain1.x[0], &qChain1.y[0], &qChain1.z[0]);
+            for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < qAlnChains.size(); chainIdx2++) {
+                AlignedCoordinate qChain2 = qAlnChains[chainIdx2];
+                interface->getinterface(qChain2.x.size(),&qChain2.x[0], &qChain2.y[0], &qChain2.z[0], qInterface);     
             }
+            delete interface;
         }
-        std::string bt(intLen, 'M');
+        std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
-        lddtcalculator = new LDDTCalculator(intLen+1, intLen+1);
-        lddtcalculator->initQuery(intLen, &qInterface.x[0], &qInterface.y[0], &qInterface.z[0]);
-        LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(intLen, 0, 0, bt, &tInterface.x[0], &tInterface.y[0], &tInterface.z[0]);
+        lddtcalculator = new LDDTCalculator(alnLen+1, alnLen+1);
+        lddtcalculator->initQuery(alnLen, &qInterface.x[0], &qInterface.y[0], &qInterface.z[0]);
+        LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(alnLen, 0, 0, bt, &tInterface.x[0], &tInterface.y[0], &tInterface.z[0]);
         interfaceLddt = lddtres.avgLddtScore;
         delete lddtcalculator;
     }
