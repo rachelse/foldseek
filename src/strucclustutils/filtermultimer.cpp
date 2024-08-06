@@ -261,15 +261,15 @@ public:
             unsigned int qChainKey = qAlnChainKeys[chainIdx];
             unsigned int tChainKey = tAlnChainKeys[chainIdx];
             for(size_t residueidx = 0; residueidx< qalignedInterface[qChainKey].size(); residueidx++){
-                std::vector<std::tuple<float, float, float>> qVector =qalignedInterface[qChainKey];
-                std::vector<std::tuple<float, float, float>> tVector = talignedInterface[tChainKey];
+                std::tuple<float, float, float> qVector =qalignedInterface[qChainKey][residueidx];
+                std::tuple<float, float, float> tVector = talignedInterface[tChainKey][residueidx];
 
-                qInterface[idx] = std::get<0>(qVector[residueidx]);
-                qInterface[alnLen + idx] = std::get<1>(qVector[residueidx]);
-                qInterface[alnLen*2 + idx] = std::get<2>(qVector[residueidx]);
-                tInterface[idx] = std::get<0>(tVector[residueidx]);
-                tInterface[alnLen + idx] = std::get<1>(tVector[residueidx]);
-                tInterface[alnLen*2 + idx] = std::get<2>(tVector[residueidx]);
+                qInterface[idx] = std::get<0>(qVector);
+                qInterface[alnLen + idx] = std::get<1>(qVector);
+                qInterface[alnLen*2 + idx] = std::get<2>(qVector);
+                tInterface[idx] = std::get<0>(tVector);
+                tInterface[alnLen + idx] = std::get<1>(tVector);
+                tInterface[alnLen*2 + idx] = std::get<2>(tVector);
                 idx ++;
             }
 
