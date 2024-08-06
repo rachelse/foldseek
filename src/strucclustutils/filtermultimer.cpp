@@ -70,7 +70,7 @@ public:
     std::vector<double> tAlnChainTms;
     std::vector<std::vector<float>> qAlnChains;
     std::vector<std::vector<float>> tAlnChains;
-    std::map<unsigned int, std::set<std::tuple<float, float, float>>> talignedInterface, qalignedInterface;
+    std::map<unsigned int, std::vector<std::tuple<float, float, float>>> talignedInterface, qalignedInterface;
 
     ComplexFilterCriteria() {}
     ComplexFilterCriteria(unsigned int targetComplexId, double qTm, double tTm, float tstring[3], float ustring[3][3]) :
@@ -227,11 +227,13 @@ public:
         }
         qAlnChainTms.push_back(tmscore/qLen);
         tAlnChainTms.push_back(tmscore/tLen);
-        for (size_t qindex : qInterfaceIndex[qChainKey]){
-            if (query_to_target[qindex] != -1){
-                size_t tindex = query_to_target[qindex];
-                talignedInterface[tChainKey].insert(std::make_tuple(tmt.x[tindex], tmt.y[tindex], tmt.z[tindex]));
-                qalignedInterface[qChainKey].insert(std::make_tuple(qm.x[qindex], qm.y[qindex], qm.z[qindex]));
+        talignedInterface[tChainKey].reserve(alnLen);
+        qalignedInterface[qChainKey].reserve(alnLen);
+        for (unsigned int qindex : qInterfaceIndex[qChainKey]){
+            int aindex = query_to_target[qindex];
+            if (aindex != -1){
+                talignedInterface[tChainKey].push_back(std::make_tuple(tmt.x[aindex], tmt.y[aindex], tmt.z[aindex]));
+                qalignedInterface[qChainKey].push_back(std::make_tuple(qm.x[aindex], qm.y[aindex], qm.z[aindex]));
             }
         }
     }
@@ -259,8 +261,8 @@ public:
             unsigned int qChainKey = qAlnChainKeys[chainIdx];
             unsigned int tChainKey = tAlnChainKeys[chainIdx];
             for(size_t residueidx = 0; residueidx< qalignedInterface[qChainKey].size(); residueidx++){
-                std::vector<std::tuple<float, float, float>> qVector(qalignedInterface[qChainKey].begin(), qalignedInterface[qChainKey].end());
-                std::vector<std::tuple<float, float, float>> tVector(talignedInterface[tChainKey].begin(), talignedInterface[tChainKey].end());
+                std::vector<std::tuple<float, float, float>> qVector =qalignedInterface[qChainKey];
+                std::vector<std::tuple<float, float, float>> tVector = talignedInterface[tChainKey];
 
                 qInterface[idx] = std::get<0>(qVector[residueidx]);
                 qInterface[alnLen + idx] = std::get<1>(qVector[residueidx]);

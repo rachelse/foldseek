@@ -13,7 +13,7 @@
 
 class Interface {
 public:
-    static constexpr float CUTOFF = 3.0;
+    static constexpr float CUTOFF = 15.0;
     static constexpr float INF = std::numeric_limits<float>::infinity();
 
     struct Grid {
