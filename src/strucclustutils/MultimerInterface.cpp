@@ -27,7 +27,7 @@ void Interface::initQuery(float *qx, float *qy, float *qz, size_t chainidx1 ) {
     query_grid = Grid(query_coordinates, queryLength);
 }
 
-void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::map<unsigned int, std::map<unsigned int, std::tuple<float, float, float>>> &qInterfaceIndex, size_t chainidx2 ) {
+void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::map<unsigned int, std::vector<unsigned int>> &qInterfaceIndex, size_t chainidx2 ) {
     targetLength = targetLen;
     chainIdx2 = chainidx2;
     target_coordinates = new float*[targetLength];
@@ -63,15 +63,11 @@ void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float
             if (std::find(tboxes.begin(), tboxes.end(), key) != tboxes.end()){
                 for (size_t i = box_members.first; i < box_members.second; i++){
                     unsigned int index1 = query_grid.box[i].second;
-                    if (qInterfaceIndex[chainIdx1].find(index1) == qInterfaceIndex[chainIdx1].end()){
-                        qInterfaceIndex[chainIdx1][index1] = std::make_tuple(query_coordinates[index1][0], query_coordinates[index1][1], query_coordinates[index1][2]);
-                    }
+                    qInterfaceIndex[chainIdx1].push_back(index1);
                 }
                 for (size_t i2 = neighbor_members.first; i2 < neighbor_members.second; i2++) {
                     int index2 = target_grid.box[i2].second;
-                    if (qInterfaceIndex[chainIdx2].find(index2) == qInterfaceIndex[chainIdx2].end()){
-                        qInterfaceIndex[chainIdx2][index2] = std::make_tuple(target_coordinates[index2][0], target_coordinates[index2][1], target_coordinates[index2][2]);
-                    }
+                    qInterfaceIndex[chainIdx2].push_back(index2);
                 }
             }
         }

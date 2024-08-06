@@ -70,7 +70,7 @@ public:
     std::vector<double> tAlnChainTms;
     std::vector<std::vector<float>> qAlnChains;
     std::vector<std::vector<float>> tAlnChains;
-    std::map<unsigned int, std::set<std::tuple<float, float, float>>> tInterfaceIndex, qnewInterfaceIndex;
+    std::map<unsigned int, std::set<std::tuple<float, float, float>>> talignedInterface, qalignedInterface;
 
     ComplexFilterCriteria() {}
     ComplexFilterCriteria(unsigned int targetComplexId, double qTm, double tTm, float tstring[3], float ustring[3][3]) :
@@ -87,8 +87,8 @@ public:
         tAlnChainKeys.clear();
         qAlnChains.clear();
         tAlnChains.clear();
-        tInterfaceIndex.clear();
-        qnewInterfaceIndex.clear();
+        talignedInterface.clear();
+        qalignedInterface.clear();
     }
 
     bool hasTm(float TmThr, int covMode){
@@ -185,7 +185,7 @@ public:
 
     void updateChainTmAndInterface(unsigned int qChainKey, unsigned int tChainKey, unsigned int alnLen, float *qdata, float *tdata,
                             const std::string &cigar, int qStartPos, int tStartPos, int qLen, int tLen, float t[3], float u[3][3],
-                            std::map<unsigned int, std::map<unsigned int, std::tuple<float, float, float>>> & qInterfaceIndex) {
+                            std::map<unsigned int, std::vector<unsigned int>> & qInterfaceIndex) {
         
         qAlnChainKeys.push_back(qChainKey);
         tAlnChainKeys.push_back(tChainKey);
@@ -195,7 +195,6 @@ public:
         std::string backtrace = Matcher::uncompressAlignment(cigar);
         Coordinates qm(alnLen), tm(alnLen);
         std::map<unsigned int, unsigned int> query_to_target;
-        std::vector<unsigned int> notalignedq;
         for (size_t btPos = 0; btPos < backtrace.size(); btPos++) {
             if (backtrace[btPos] == 'M') {
                 qm.x[mi] = qdata[qi];
@@ -210,7 +209,7 @@ public:
                 query_to_target[qi] = mi;
             }
             else if (backtrace[btPos] == 'I') {
-                notalignedq.push_back(qi);
+                query_to_target[qi] = -1;
                 qi++;
             }
             else {
@@ -228,14 +227,11 @@ public:
         }
         qAlnChainTms.push_back(tmscore/qLen);
         tAlnChainTms.push_back(tmscore/tLen);
-        for (auto &qindexpair : qInterfaceIndex[qChainKey]){
-            size_t qindex = qindexpair.first;
-            if (std::find(notalignedq.begin(), notalignedq.end(), qindex) == notalignedq.end()){
+        for (size_t qindex : qInterfaceIndex[qChainKey]){
+            if (query_to_target[qindex] != -1){
                 size_t tindex = query_to_target[qindex];
-                if (qnewInterfaceIndex[qChainKey].find(qindexpair.second) == qnewInterfaceIndex[qChainKey].end()){
-                    tInterfaceIndex[tChainKey].insert(std::make_tuple(tmt.x[tindex], tmt.y[tindex], tmt.z[tindex]));
-                    qnewInterfaceIndex[qChainKey].insert(qindexpair.second);
-                }
+                talignedInterface[tChainKey].insert(std::make_tuple(tmt.x[tindex], tmt.y[tindex], tmt.z[tindex]));
+                qalignedInterface[qChainKey].insert(std::make_tuple(qm.x[qindex], qm.y[qindex], qm.z[qindex]));
             }
         }
     }
@@ -248,7 +244,7 @@ public:
         unsigned int alnLen = 0;
         for (unsigned int chainIdx = 0; chainIdx < qAlnChainKeys.size(); chainIdx++) {
             unsigned int qChainKey = qAlnChainKeys[chainIdx];
-            for(unsigned int residueidx = 0; residueidx< qnewInterfaceIndex[qChainKey].size(); residueidx++){
+            for(unsigned int residueidx = 0; residueidx< qalignedInterface[qChainKey].size(); residueidx++){
                 alnLen ++;
             }
         }
@@ -262,9 +258,9 @@ public:
         for (size_t chainIdx = 0; chainIdx < qAlnChainKeys.size(); chainIdx++) {
             unsigned int qChainKey = qAlnChainKeys[chainIdx];
             unsigned int tChainKey = tAlnChainKeys[chainIdx];
-            for(size_t residueidx = 0; residueidx< qnewInterfaceIndex[qChainKey].size(); residueidx++){
-                std::vector<std::tuple<float, float, float>> qVector(qnewInterfaceIndex[qChainKey].begin(), qnewInterfaceIndex[qChainKey].end());
-                std::vector<std::tuple<float, float, float>> tVector(tInterfaceIndex[tChainKey].begin(), tInterfaceIndex[tChainKey].end());
+            for(size_t residueidx = 0; residueidx< qalignedInterface[qChainKey].size(); residueidx++){
+                std::vector<std::tuple<float, float, float>> qVector(qalignedInterface[qChainKey].begin(), qalignedInterface[qChainKey].end());
+                std::vector<std::tuple<float, float, float>> tVector(talignedInterface[tChainKey].begin(), talignedInterface[tChainKey].end());
 
                 qInterface[idx] = std::get<0>(qVector[residueidx]);
                 qInterface[alnLen + idx] = std::get<1>(qVector[residueidx]);
@@ -495,7 +491,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             Complex qComplex = qComplexes[qComplexIdx];
             unsigned int qComplexId = qComplex.complexId;
             std::vector<unsigned int> qChainKeys = qComplex.chainKeys;
-            std::map<unsigned int, std::map<unsigned int, std::tuple<float, float, float>>> qInterfaceIndex; //chainKey: residueIdx: coords
+            std::map<unsigned int, std::vector<unsigned int>> qInterfaceIndex; //chainKey: residueIdxVec
             if (qChainKeys.size() > 1){
                 for (size_t qChainIdx1 = 0; qChainIdx1 < qChainKeys.size() -1 ; qChainIdx1++ ){
                     unsigned int qChainKey1 = qChainKeys[qChainIdx1];
@@ -515,10 +511,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         size_t qChainLen2 = qDbr->sequenceReader->getSeqLen(qChainDbId2);   
                         float* qdata2 = qcoords.read(qcadata2, qChainLen2, qCaLength2);
                         interface->getinterface(qChainLen2, qdata2, &qdata2[qChainLen2], &qdata2[qChainLen2 + qChainLen2], qInterfaceIndex, qChainKey2);
-                        // #pragma omp critical
-                        // {
-                        //     Debug(Debug::WARNING)<<qChainLen1<<"\t"<<qInterfaceIndex[qChainKey1].size()<<"\n";
-                        // }
                     }
                     delete interface;
                 }

@@ -93,7 +93,7 @@ public:
     ~Interface();
 
     void initQuery(float *qx, float *qy, float *qz, size_t chainidx1 );
-    void getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::map<unsigned int, std::map<unsigned int, std::tuple<float, float, float>>> &qInterfaceIndex, size_t chainidx2);
+    void getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::map<unsigned int, std::vector<unsigned int>> &qInterfaceIndex, size_t chainidx2);
 
 private:
     unsigned int chainIdx1, chainIdx2;
