@@ -176,11 +176,11 @@ public:
         // const bool chainNumOK = hasChainNum(covMode, filterMode, qChainNum, tChainNum);
         const bool chainTmOK = chainTmThr ? hasChainTm(chainTmThr, covMode, qChainNum, tChainNum) : true;
         const bool lddtOK = iLddtThr ? (interfaceLddt >= iLddtThr) : true;
-
         // const bool conformationOK = isConformation(filterMode, chainTmThr);
         // return (covOK && TmOK && chainNumOK && chainTmOK);
+
+        //TODO: If considering only cov, complextm, lddt -> should check chain number.
          return (covOK && TmOK && chainTmOK && lddtOK);
-        //  return (covOK && TmOK && chainTmOK );
     }
 
     void updateAln(unsigned int qAlnLen, unsigned int tAlnLen) {
@@ -232,7 +232,6 @@ public:
         }
         qAlnChainTms.push_back(tmscore/qLen);
         tAlnChainTms.push_back(tmscore/tLen);
-        // Debug(Debug::WARNING)<<"INT"<<"\t"<<qInterfaceIndex[qChainKey].size()<<"\n";
         for (unsigned int qindex : qInterfaceIndex[qChainKey]){
             int aindex = query_to_target[qindex];
             if (aindex != -1){
@@ -252,7 +251,6 @@ public:
 
     void computeInterfaceLddt() {
         unsigned int alnLen = qalignedx.size();
-        // Debug(Debug::WARNING)<<alnLen<<"\n";
         if (alnLen == 0){
             return;
         }
@@ -339,7 +337,8 @@ void getComplexResidueLength( IndexReader *Dbr, std::vector<Complex> &complexes)
         unsigned int cmpllen = 0;
         for (auto chainKey: chainKeys) {
             size_t id = Dbr->sequenceReader->getId(chainKey);
-            // Not accessible
+            // Not accessible 
+            //TODO : Can't understand why DB(query, target. not aln) has NOT_AVAILABLE_CHAIN_KEY
             if (id == NOT_AVAILABLE_CHAIN_KEY)
                 continue;
             unsigned int reslen = Dbr->sequenceReader->getSeqLen(id);
@@ -580,14 +579,12 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
 
                 ComplexFilterCriteria &cmplfiltcrit = assId_res.second;
                 cmplfiltcrit.calcCov(qComplex.complexLength, tComplex.complexLength);
-                // Debug(Debug::WARNING)<<"Q"<<"\t"<<qComplex.complexLength<<"\n";
 
                 if (par.filtInterfaceLddtThr > 0.0) {
                     cmplfiltcrit.computeInterfaceLddt();
                 }
 
                 // Check if the criteria are met
-                // if (!(cmplfiltcrit.satisfy(par.covMode, par.filterMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))){
                 if (!(cmplfiltcrit.satisfy(par.covMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))){\
                     continue;
                 }
@@ -618,7 +615,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 char *outpos = Itoa::u32toa_sse2(tComplexId, buffer);
                 result.append(buffer, (outpos - buffer - 1));
                 result.push_back('\n');
-                // result5.append(qComplex.complexName + "\t" + tComplex.complexName + "\t" + std::to_string(cmplfiltcrit.qCov) + "\t" + std::to_string(cmplfiltcrit.tCov) + "\t"+ std::to_string(cmplfiltcrit.qTm)+"\t"+ std::to_string(cmplfiltcrit.tTm)+ "\n");
                 result5.append(qComplex.complexName + "\t" + tComplex.complexName + "\t" + std::to_string(cmplfiltcrit.qCov) + "\t" + std::to_string(cmplfiltcrit.tCov) + "\t"+ std::to_string(cmplfiltcrit.qTm)+"\t"+ std::to_string(cmplfiltcrit.tTm)+"\t"+ std::to_string(cmplfiltcrit.interfaceLddt)+"\n");
             }
 
