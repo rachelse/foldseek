@@ -70,7 +70,8 @@ public:
     std::vector<double> tAlnChainTms;
     std::vector<std::vector<float>> qAlnChains;
     std::vector<std::vector<float>> tAlnChains;
-    std::map<unsigned int, std::vector<std::tuple<float, float, float>>> talignedInterface, qalignedInterface;
+    std::vector<float> talignedx, talignedy, talignedz, qalignedx, qalignedy, qalignedz;
+    // std::map<unsigned int, std::vector<std::tuple<float, float, float>>> talignedInterface, qalignedInterface;
 
     ComplexFilterCriteria() {}
     ComplexFilterCriteria(unsigned int targetComplexId, double qTm, double tTm, float tstring[3], float ustring[3][3]) :
@@ -79,6 +80,12 @@ public:
                                 for (int i = 0; i < 3; i++) {
                                     std::copy(ustring[i], ustring[i] + 3, u[i]);
                                 }
+                                talignedx.reserve(100);
+                                talignedy.reserve(100);
+                                talignedz.reserve(100);
+                                qalignedx.reserve(100);
+                                qalignedy.reserve(100);
+                                qalignedz.reserve(100);
                             }
     ~ComplexFilterCriteria() {
         qAlnChainTms.clear();
@@ -87,8 +94,6 @@ public:
         tAlnChainKeys.clear();
         qAlnChains.clear();
         tAlnChains.clear();
-        talignedInterface.clear();
-        qalignedInterface.clear();
     }
 
     bool hasTm(float TmThr, int covMode){
@@ -227,13 +232,16 @@ public:
         }
         qAlnChainTms.push_back(tmscore/qLen);
         tAlnChainTms.push_back(tmscore/tLen);
-        talignedInterface[tChainKey].reserve(alnLen);
-        qalignedInterface[qChainKey].reserve(alnLen);
+        // Debug(Debug::WARNING)<<"INT"<<"\t"<<qInterfaceIndex[qChainKey].size()<<"\n";
         for (unsigned int qindex : qInterfaceIndex[qChainKey]){
             int aindex = query_to_target[qindex];
             if (aindex != -1){
-                talignedInterface[tChainKey].push_back(std::make_tuple(tmt.x[aindex], tmt.y[aindex], tmt.z[aindex]));
-                qalignedInterface[qChainKey].push_back(std::make_tuple(qm.x[aindex], qm.y[aindex], qm.z[aindex]));
+                qalignedx.push_back(qm.x[aindex]);
+                qalignedy.push_back(qm.y[aindex]);
+                qalignedz.push_back(qm.z[aindex]);
+                talignedx.push_back(tmt.x[aindex]);
+                talignedy.push_back(tmt.y[aindex]);
+                talignedz.push_back(tmt.z[aindex]);
             }
         }
     }
@@ -243,47 +251,31 @@ public:
     }
 
     void computeInterfaceLddt() {
-        unsigned int alnLen = 0;
-        for (unsigned int chainIdx = 0; chainIdx < qAlnChainKeys.size(); chainIdx++) {
-            unsigned int qChainKey = qAlnChainKeys[chainIdx];
-            for(unsigned int residueidx = 0; residueidx< qalignedInterface[qChainKey].size(); residueidx++){
-                alnLen ++;
-            }
-        }
+        unsigned int alnLen = qalignedx.size();
+        // Debug(Debug::WARNING)<<alnLen<<"\n";
         if (alnLen == 0){
             return;
         }
-        float* qInterface = new float[alnLen*3];
-        float* tInterface = new float[alnLen*3];
 
-        unsigned int idx = 0;
-        for (size_t chainIdx = 0; chainIdx < qAlnChainKeys.size(); chainIdx++) {
-            unsigned int qChainKey = qAlnChainKeys[chainIdx];
-            unsigned int tChainKey = tAlnChainKeys[chainIdx];
-            for(size_t residueidx = 0; residueidx< qalignedInterface[qChainKey].size(); residueidx++){
-                std::tuple<float, float, float> qVector =qalignedInterface[qChainKey][residueidx];
-                std::tuple<float, float, float> tVector = talignedInterface[tChainKey][residueidx];
-
-                qInterface[idx] = std::get<0>(qVector);
-                qInterface[alnLen + idx] = std::get<1>(qVector);
-                qInterface[alnLen*2 + idx] = std::get<2>(qVector);
-                tInterface[idx] = std::get<0>(tVector);
-                tInterface[alnLen + idx] = std::get<1>(tVector);
-                tInterface[alnLen*2 + idx] = std::get<2>(tVector);
-                idx ++;
-            }
-
-        }
-       
         std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
         lddtcalculator = new LDDTCalculator(alnLen+1, alnLen+1);
-        lddtcalculator->initQuery(alnLen, qInterface, &qInterface[alnLen], &qInterface[alnLen + alnLen]);
-        LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(alnLen, 0, 0, bt, tInterface, &tInterface[alnLen], &tInterface[alnLen + alnLen]);
+        lddtcalculator->initQuery(alnLen, qalignedx.data(), qalignedy.data(), qalignedz.data());
+        LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(alnLen, 0, 0, bt, talignedx.data(), talignedy.data(), talignedz.data());
         interfaceLddt = lddtres.avgLddtScore;
         delete lddtcalculator;
-        delete[] qInterface;
-        delete[] tInterface;
+        qalignedx.clear();
+        qalignedx.shrink_to_fit();
+        qalignedy.clear();
+        qalignedy.shrink_to_fit();
+        qalignedz.clear();
+        qalignedz.shrink_to_fit();
+        talignedx.clear();
+        talignedx.shrink_to_fit();
+        talignedy.clear();
+        talignedy.shrink_to_fit();
+        talignedz.clear();
+        talignedz.shrink_to_fit();
     }
 };
 
@@ -588,6 +580,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
 
                 ComplexFilterCriteria &cmplfiltcrit = assId_res.second;
                 cmplfiltcrit.calcCov(qComplex.complexLength, tComplex.complexLength);
+                // Debug(Debug::WARNING)<<"Q"<<"\t"<<qComplex.complexLength<<"\n";
 
                 if (par.filtInterfaceLddtThr > 0.0) {
                     cmplfiltcrit.computeInterfaceLddt();

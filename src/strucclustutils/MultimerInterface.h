@@ -13,7 +13,7 @@
 
 class Interface {
 public:
-    static constexpr float CUTOFF = 15.0;
+    static constexpr float CUTOFF = 1.0;
     static constexpr float INF = std::numeric_limits<float>::infinity();
 
     struct Grid {
@@ -24,8 +24,6 @@ public:
                 for(int dim = 0; dim < 3; dim++) {
                     if(m1[i][dim] < min[dim]) min[dim] = m1[i][dim];
                     if(m1[i][dim] > max[dim]) max[dim] = m1[i][dim];
-                    // if(m1[i][dim] > min[dim]) min[dim] = m1[i][dim];
-                    // if(m1[i][dim] < max[dim]) max[dim] = m1[i][dim];
                 }
             }
             box.clear();

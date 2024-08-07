@@ -63,11 +63,17 @@ void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float
             if (std::find(tboxes.begin(), tboxes.end(), key) != tboxes.end()){
                 for (size_t i = box_members.first; i < box_members.second; i++){
                     unsigned int index1 = query_grid.box[i].second;
-                    qInterfaceIndex[chainIdx1].push_back(index1);
+                    std::vector<unsigned int> indexes1 = qInterfaceIndex[chainIdx1];
+                    if (std::find(indexes1.begin(), indexes1.end(), index1) == indexes1.end()) {
+                        qInterfaceIndex[chainIdx1].push_back(index1);
+                    }
                 }
                 for (size_t i2 = neighbor_members.first; i2 < neighbor_members.second; i2++) {
                     int index2 = target_grid.box[i2].second;
-                    qInterfaceIndex[chainIdx2].push_back(index2);
+                    std::vector<unsigned int> indexes2 = qInterfaceIndex[chainIdx2];
+                    if (std::find(indexes2.begin(), indexes2.end(), index2) == indexes2.end()) {
+                        qInterfaceIndex[chainIdx2].push_back(index2);
+                    }
                 }
             }
         }
