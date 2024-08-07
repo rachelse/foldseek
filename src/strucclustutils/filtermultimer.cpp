@@ -262,11 +262,16 @@ public:
             }
             delete interface;
         }
+
+        //TODO sooyoung 0806    
+        //should get target tInterface
+        //However, backtrace might be weird. 
+
         std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
         lddtcalculator = new LDDTCalculator(alnLen+1, alnLen+1);
         lddtcalculator->initQuery(alnLen, &qInterface.x[0], &qInterface.y[0], &qInterface.z[0]);
-        //TODO sooyoung 0806 OMG tInterface is not calculated
+        
         LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(alnLen, 0, 0, bt, &tInterface.x[0], &tInterface.y[0], &tInterface.z[0]);
         interfaceLddt = lddtres.avgLddtScore;
         delete lddtcalculator;
