@@ -337,10 +337,6 @@ void getComplexResidueLength( IndexReader *Dbr, std::vector<Complex> &complexes)
         unsigned int cmpllen = 0;
         for (auto chainKey: chainKeys) {
             size_t id = Dbr->sequenceReader->getId(chainKey);
-            // Not accessible 
-            //TODO : Can't understand why DB(query, target. not aln) has NOT_AVAILABLE_CHAIN_KEY
-            if (id == NOT_AVAILABLE_CHAIN_KEY)
-                continue;
             unsigned int reslen = Dbr->sequenceReader->getSeqLen(id);
             complex->chainLengths.push_back(reslen);
             cmpllen += Dbr->sequenceReader->getSeqLen(id);
