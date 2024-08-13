@@ -42,10 +42,15 @@ void Interface::getinterface(unsigned int targetLen, float *tx, float *ty, float
         target_coordinates[i][2] = tz[i];
     }
     Interface::Grid target_grid = Grid(target_coordinates, targetLength, false);
-    const int DIR = 14;
-    int dx[DIR] = {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
-    int dy[DIR] = {0, 1, 1, 1, 0, 0, 0, -1, -1, -1, 1, 1, 1, 0};
-    int dz[DIR] = {0, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1};
+    const int DIR = 19;
+    int dx[DIR] = {0, 0, 0, 0, 0, 0, 0,  0,  0,  1,  1, -1, -1, 1, 1, -1, -1, 1, -1};
+    int dy[DIR] = {0, 0, 1, 0, -1, 1, 1, -1, -1, -1, 1, -1, 1, 0, 0, 0, 0, 0, 0};
+    int dz[DIR] = {0, 1, 0, -1, 0, -1, 1, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 0, 0};
+    // const int DIR = 14;
+    // int dx[DIR] = {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
+    // int dy[DIR] = {0, 1, 1, 1, 0, 0, 0, -1, -1, -1, 1, 1, 1, 0};
+    // int dz[DIR] = {0, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 1};
+
     std::vector<std::tuple<int, int, int>> tboxes;
     std::map<std::tuple<int, int, int>, bool> visited_boxes;
     for (unsigned int target_idx = 0; target_idx < targetLength; target_idx++){

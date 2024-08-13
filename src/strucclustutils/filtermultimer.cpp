@@ -254,7 +254,6 @@ public:
         if (alnLen == 0){
             return;
         }
-
         std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
         lddtcalculator = new LDDTCalculator(alnLen+1, alnLen+1);
