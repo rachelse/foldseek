@@ -13,17 +13,19 @@
 
 class Interface {
 public:
-    static constexpr float CUTOFF = 1.0;
+    static constexpr float CUTOFF = 8.0;
     static constexpr float INF = std::numeric_limits<float>::infinity();
+    static float min[3];
 
     struct Grid {
         Grid() {};
-        Grid(float **& m1, unsigned int queryLength) {
+        Grid(float **& m1, unsigned int queryLength, bool isInit) {
             int len = queryLength;
-            for(int i = 0; i < len; i++) {
-                for(int dim = 0; dim < 3; dim++) {
-                    if(m1[i][dim] < min[dim]) min[dim] = m1[i][dim];
-                    if(m1[i][dim] > max[dim]) max[dim] = m1[i][dim];
+            if (isInit == true){
+                for(int i = 0; i < len; i++) {
+                    for(int dim = 0; dim < 3; dim++) {
+                        if(m1[i][dim] < Interface::min[dim]) Interface::min[dim] = m1[i][dim];
+                    }
                 }
             }
             box.clear();
@@ -31,10 +33,11 @@ public:
             for(int i = 0; i < (int)queryLength; i++) {
                 int box_coord[3];
                 for(int dim = 0; dim < 3; dim++) {
-                    box_coord[dim] = (int)((m1[i][dim] - min[dim]) / CUTOFF);
+                    box_coord[dim] = (int)((m1[i][dim] - Interface::min[dim]) / CUTOFF);                    
                 }
                 box.emplace_back(std::make_tuple(box_coord[0], box_coord[1], box_coord[2]), i);
             }
+            
             SORT_SERIAL(box.begin(), box.end());
             // precompute index for box to get range per entry
             // tuple -> (start, end) in box_index
@@ -53,7 +56,7 @@ public:
         std::tuple<int, int, int> getGridCoordinates(const float *point) {
             int box_coord[3];
             for(int dim = 0; dim < 3; dim++) {
-                box_coord[dim] = (int)((point[dim] - min[dim]) / CUTOFF);
+                box_coord[dim] = (int)((point[dim] - Interface::min[dim]) / CUTOFF);
             }
             return std::make_tuple(box_coord[0], box_coord[1], box_coord[2]);
         }
@@ -81,9 +84,6 @@ public:
             }
             return it->second;
         }
-
-        float min[3] = {INF, INF, INF};
-        float max[3] = {-INF, -INF, -INF};
         std::vector<std::pair<std::tuple<int, int, int>, int>> box;
         std::vector<std::pair<std::tuple<int, int, int>, std::pair<size_t, size_t>>> box_index;
     };
@@ -94,10 +94,10 @@ public:
     void getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, std::map<unsigned int, std::vector<unsigned int>> &qInterfaceIndex, size_t chainidx2);
 
 private:
-    unsigned int chainIdx1, chainIdx2;
-    unsigned int queryLength, targetLength;
-    float **query_coordinates, **target_coordinates;
-    Interface::Grid query_grid, target_grid;
+    unsigned int chainIdx1;
+    unsigned int queryLength;
+    float **query_coordinates;
+    Interface::Grid query_grid;
 };
 
 #endif
