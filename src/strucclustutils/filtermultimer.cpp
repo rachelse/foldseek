@@ -208,10 +208,10 @@ public:
                 tm.x[mi] = tdata[ti];
                 tm.y[mi] = tdata[tLen + ti];
                 tm.z[mi] = tdata[2*tLen + ti];
+                query_to_target[qi] = mi;
                 qi++;
                 ti++;
                 mi++;
-                query_to_target[qi] = mi;
             }
             else if (backtrace[btPos] == 'I') {
                 query_to_target[qi] = -1;
@@ -234,7 +234,7 @@ public:
         tAlnChainTms.push_back(tmscore/tLen);
         for (unsigned int qindex : qInterfaceIndex[qChainKey]){
             int aindex = query_to_target[qindex];
-            if (aindex != -1){
+            if (query_to_target.find(qindex) != query_to_target.end() && aindex != -1){
                 qalignedx.push_back(qm.x[aindex]);
                 qalignedy.push_back(qm.y[aindex]);
                 qalignedz.push_back(qm.z[aindex]);
@@ -254,6 +254,7 @@ public:
         if (alnLen == 0){
             return;
         }
+        Debug(Debug::WARNING)<<alnLen<<"\n";
         std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
         lddtcalculator = new LDDTCalculator(alnLen+1, alnLen+1);
