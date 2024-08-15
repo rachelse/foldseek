@@ -6,8 +6,10 @@ float Interface::min[3] = { Interface::INF, Interface::INF, Interface::INF };
 
 Interface::Interface(unsigned int queryLength) :queryLength(queryLength) {
     query_coordinates1 = new float*[queryLength];
+    target_coordinates1 = new float*[queryLength];
     for(unsigned int i = 0; i < queryLength; i++) {
         query_coordinates1[i] = new float[3];
+        target_coordinates1[i] = new float[3];
     }
 }
 
@@ -15,8 +17,10 @@ Interface::~Interface() {
     if(query_coordinates1) {
         for(unsigned int i = 0; i < queryLength; i++) {
             delete[] query_coordinates1[i];
+            delete[] target_coordinates1[i];
         }
         delete[] query_coordinates1;
+        delete[] target_coordinates1;
     }
 }
 void Interface::initQuery(float *qx1, float *qy1, float *qz1, float *tx1, float *ty1, float *tz1, unsigned int chainidx1 ) {
@@ -38,6 +42,7 @@ void Interface::getinterface(unsigned int targetLen, float *qx2, float *qy2, flo
     float **target_coordinates2 = new float*[targetLength];
     for(unsigned int i = 0; i < targetLength; i++) {
         query_coordinates2[i] = new float[3];
+        target_coordinates2[i] = new float[3];
     }
     for(unsigned int i = 0; i < targetLength; i++) {
         query_coordinates2[i][0] = qx2[i];
@@ -95,9 +100,9 @@ void Interface::getinterface(unsigned int targetLen, float *qx2, float *qy2, flo
                             qInterface.x.push_back(query_coordinates2[index2][0]);
                             qInterface.y.push_back(query_coordinates2[index2][1]);
                             qInterface.z.push_back(query_coordinates2[index2][2]);
-                            tInterface.x.push_back(target_coordinates2[index1][0]);
-                            tInterface.y.push_back(target_coordinates2[index1][1]);
-                            tInterface.z.push_back(target_coordinates2[index1][2]);
+                            tInterface.x.push_back(target_coordinates2[index2][0]);
+                            tInterface.y.push_back(target_coordinates2[index2][1]);
+                            tInterface.z.push_back(target_coordinates2[index2][2]);
                         }
                     }
                 }
@@ -108,7 +113,8 @@ void Interface::getinterface(unsigned int targetLen, float *qx2, float *qy2, flo
         delete[] query_coordinates2[i];
         delete[] target_coordinates2[i];
     }
-    delete[] query_coordinates2, target_coordinates2;
+    delete[] query_coordinates2;
+    delete[] target_coordinates2;
     tboxes.clear();
     visited_boxes.clear();
 }
