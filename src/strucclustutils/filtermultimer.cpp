@@ -336,6 +336,9 @@ void getComplexResidueLength( IndexReader *Dbr, std::vector<Complex> &complexes)
         unsigned int cmpllen = 0;
         for (auto chainKey: chainKeys) {
             size_t id = Dbr->sequenceReader->getId(chainKey);
+            if (id == NOT_AVAILABLE_CHAIN_KEY){
+                break;
+            }
             unsigned int reslen = Dbr->sequenceReader->getSeqLen(id);
             complex->chainLengths.push_back(reslen);
             cmpllen += Dbr->sequenceReader->getSeqLen(id);
@@ -506,7 +509,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             for (size_t qChainIdx = 0; qChainIdx < qChainKeys.size(); qChainIdx++ ) {
                 unsigned int qChainKey = qChainKeys[qChainIdx];
                 unsigned int qChainAlnId = alnDbr.getId(qChainKey);
-                unsigned int qChainDbId = qDbr->sequenceReader->getId(qChainKey);
                 // Handling monomer as singleton
                 if (qChainAlnId == NOT_AVAILABLE_CHAIN_KEY){
                     char *outpos = Itoa::u32toa_sse2(qComplexId, buffer);
@@ -515,7 +517,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     result5.append(qComplex.complexName + "\t" + tComplexes[qComplexIdx].complexName + "\t1.000000\t1.000000\t1.000000\t1.000000\n");
                     break;
                 }
-
+                unsigned int qChainDbId = qDbr->sequenceReader->getId(qChainKey);
                 char *qcadata = qStructDbr.getData(qChainDbId, thread_idx);
                 size_t qCaLength = qStructDbr.getEntryLen(qChainDbId);
                 size_t qChainLen = qDbr->sequenceReader->getSeqLen(qChainDbId);
@@ -536,7 +538,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     unsigned int tChainAlnId = alnDbr.getId(tChainKey);
                     //if target is monomer, break to be singleton
                     if (tChainAlnId == NOT_AVAILABLE_CHAIN_KEY){
-                        break;
+                        continue;
                     }
                     unsigned int tChainDbId = tDbr->sequenceReader->getId(tChainKey);
                     unsigned int tComplexId = tChainKeyToComplexIdMap.at(tChainKey);
