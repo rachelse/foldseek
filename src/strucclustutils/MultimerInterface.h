@@ -12,6 +12,7 @@
 #define MULTIMERINTERFACE_H
 
 struct AlignedCoordinate {
+    std::map<unsigned int, std::vector<unsigned int>> chainResidueIndexMap;
     std::vector<float> x;
     std::vector<float> y;
     std::vector<float> z;
@@ -106,13 +107,14 @@ public:
     Interface(unsigned int queryLen);
     ~Interface();
 
-    void initQuery(float *qx, float *qy, float *qz);
-    void getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, AlignedCoordinate &qInterface);
+    void initQuery(float *qx1, float *qy1, float *qz1, float *tx1, float *ty1, float *tz1, unsigned int chainidx1 );
+    void getinterface(unsigned int targetLen, float *qx2, float *qy2, float *qz2, float *tx2, float *ty2, float *tz2, AlignedCoordinate &qInterface, AlignedCoordinate &tInterface, unsigned int chainidx2);
 
 private:
-    unsigned int queryLength;
-    float **query_coordinates;
-    Interface::Grid query_grid;
+    unsigned int queryLength, chainidx;
+    float **query_coordinates1;
+    float **target_coordinates1;
+    Interface::Grid query_grid1, target_grid1;
 };
 
 #endif

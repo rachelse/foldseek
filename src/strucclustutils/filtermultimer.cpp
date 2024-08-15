@@ -254,18 +254,16 @@ public:
         Interface *interface = NULL;
         for (size_t chainIdx1 = 0; chainIdx1 < qAlnChains.size() - 1; chainIdx1++) {
             AlignedCoordinate qChain1 = qAlnChains[chainIdx1];
+            AlignedCoordinate tChain1 = tAlnChains[chainIdx1];
             interface = new Interface(qChain1.x.size()); 
-            interface->initQuery(&qChain1.x[0], &qChain1.y[0], &qChain1.z[0]);
+            interface->initQuery(&qChain1.x[0], &qChain1.y[0], &qChain1.z[0], &tChain1.x[0], &tChain1.y[0], &tChain1.z[0], chainIdx1);
             for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < qAlnChains.size(); chainIdx2++) {
                 AlignedCoordinate qChain2 = qAlnChains[chainIdx2];
-                interface->getinterface(qChain2.x.size(),&qChain2.x[0], &qChain2.y[0], &qChain2.z[0], qInterface);     
+                AlignedCoordinate tChain2 = tAlnChains[chainIdx2];
+                interface->getinterface(qChain2.x.size(),&qChain2.x[0], &qChain2.y[0], &qChain2.z[0], &tChain2.x[0], &tChain2.y[0], &tChain2.z[0], qInterface, tInterface, chainIdx2);     
             }
             delete interface;
         }
-
-        //TODO sooyoung 0806    
-        //should get target tInterface
-        //However, backtrace might be weird. 
 
         std::string bt(alnLen, 'M');
         LDDTCalculator *lddtcalculator = NULL;
@@ -354,6 +352,9 @@ void getComplexResidueLength( IndexReader *Dbr, std::vector<Complex> &complexes)
         unsigned int cmpllen = 0;
         for (auto chainKey: chainKeys) {
             size_t id = Dbr->sequenceReader->getId(chainKey);
+            if (id == NOT_AVAILABLE_CHAIN_KEY){
+                break;
+            }
             unsigned int reslen = Dbr->sequenceReader->getSeqLen(id);
             complex->chainLengths.push_back(reslen);
             cmpllen += Dbr->sequenceReader->getSeqLen(id);
