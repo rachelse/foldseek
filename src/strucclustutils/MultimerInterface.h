@@ -30,17 +30,19 @@ struct AlignedCoordinate {
 
 class Interface {
 public:
-    static constexpr float CUTOFF = 1.0;
+    static constexpr float CUTOFF = 8.0;
     static constexpr float INF = std::numeric_limits<float>::infinity();
+    static float min[3];
 
     struct Grid {
         Grid() {};
-        Grid(float **& m1, unsigned int queryLength) {
+        Grid(float **& m1, unsigned int queryLength, bool isInit) {
             int len = queryLength;
-            for(int i = 0; i < len; i++) {
-                for(int dim = 0; dim < 3; dim++) {
-                    if(m1[i][dim] < min[dim]) min[dim] = m1[i][dim];
-                    if(m1[i][dim] > max[dim]) max[dim] = m1[i][dim];
+            if (isInit == true){
+                for(int i = 0; i < len; i++) {
+                    for(int dim = 0; dim < 3; dim++) {
+                        if(m1[i][dim] < Interface::min[dim]) Interface::min[dim] = m1[i][dim];
+                    }
                 }
             }
             box.clear();
@@ -98,9 +100,6 @@ public:
             }
             return it->second;
         }
-
-        float min[3] = {INF, INF, INF};
-        float max[3] = {-INF, -INF, -INF};
         std::vector<std::pair<std::tuple<int, int, int>, int>> box;
         std::vector<std::pair<std::tuple<int, int, int>, std::pair<size_t, size_t>>> box_index;
     };
@@ -111,8 +110,8 @@ public:
     void getinterface(unsigned int targetLen, float *tx, float *ty, float *tz, AlignedCoordinate &qInterface);
 
 private:
-    unsigned int queryLength, targetLength;
-    float **query_coordinates, **target_coordinates;
+    unsigned int queryLength;
+    float **query_coordinates;
     Interface::Grid query_grid;
 };
 
