@@ -122,7 +122,7 @@ buldCmplhDb(){
         split($2,words," ")
         split(words[1],part,"_")
         output_string=part[1]
-        for (j = 2; j < length(part)ş j++) {
+        for (j = 2; j < length(part); j++) {
             if (j < length(part)){
                 output_string=output_string"_" 
             }
