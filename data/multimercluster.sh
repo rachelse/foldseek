@@ -160,7 +160,7 @@ if notExists "${TMP_PATH}/multimer_db.dbtype"; then
         || fail "createtsv died"  
     buildCmplDb "${TMP_PATH}/chain_db.tsv" "${INPUT}" "${TMP_PATH}/multimer.tsv"
     # shellcheck disable=SC2086
-    "$MMSEQS" tsv2db "${TMP_PATH}/multimer.tsv" "${TMP_PATH}/multimer_db" --output-dbtype 0 $={VERBOSITY_PAR} \
+    "$MMSEQS" tsv2db "${TMP_PATH}/multimer.tsv" "${TMP_PATH}/multimer_db" --output-dbtype 0 ${VERBOSITY_PAR} \
         || fail "tsv2db died"
 fi
 
@@ -169,7 +169,7 @@ if notExists "${TMP_PATH}/multimer_db_h.dbtype"; then
     cut -f1 "${INPUT}".index > "${TMP_PATH}/idxlist"
 
     # shellcheck disable=SC2086
-    "$MMSEQS" base:createsubdb "${TMP_PATH}/idxlist" "${INPUT}_h" "${TMP_PATH}/${INPUT}tmp_h" --subdb-mode 0 ${VERBOSITY_PAR}
+    "$MMSEQS" base:createsubdb "${TMP_PATH}/idxlist" "${INPUT}_h" "${TMP_PATH}/${INPUT}tmp_h" --subdb-mode 0 ${VERBOSITY_PAR} \
         || fail "createsubdb died"
     # shellcheck disable=SC2086
     "$MMSEQS" lndb "${INPUT}" "${TMP_PATH}/${INPUT}tmp"  ${VERBOSITY} \
