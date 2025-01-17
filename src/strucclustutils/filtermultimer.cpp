@@ -27,6 +27,7 @@ struct Complex {
     Complex() : complexId(0), nChain(0), complexLength(0), complexName("") {}
     ~Complex() {
         chainKeys.clear();
+        chainLengths.clear();
     }
 };
 
@@ -239,18 +240,13 @@ public:
                 ti++;
             }
         }
+
         qAlnChainKeys.push_back(qChainKey);
         tAlnChainKeys.push_back(tChainKey);
+
         qAlnChains.push_back(qChain);
         tAlnChains.push_back(tChain);
     }
-    // void update(unsigned int qChainKey, unsigned int tChainKey, double qChainTm, double tChainTm) {
-    //     this->qAlnChainTms.push_back(qChainTm);
-    //     this->tAlnChainTms.push_back(tChainTm);
-        
-    //     this->qAlnChainKeys.push_back(qChainKey);
-    //     this->tAlnChainKeys.push_back(tChainKey);
-    // }
 
     void calcCov(unsigned int qLen, unsigned int tLen) {
         qCov = static_cast<float>(qTotalAlnLen) / static_cast<float>(qLen);
@@ -328,6 +324,18 @@ char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
     *(tmpBuff-1) = '\t';
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.tTm, tmpBuff);
     *(tmpBuff-1) = '\t';
+
+    for (int i = 0; i < cmplfiltcrit.qAlnChainKeys.size(); i++) {
+        tmpBuff = fastfloatToBuffer(cmplfiltcrit.qAlnChainTms[i], tmpBuff);
+        *(tmpBuff-1) = ',';
+    }
+    *(tmpBuff-1) = '\t';
+    for (int i = 0; i < cmplfiltcrit.tAlnChainKeys.size(); i++) {
+        tmpBuff = fastfloatToBuffer(cmplfiltcrit.tAlnChainTms[i], tmpBuff);
+        *(tmpBuff-1) = ',';
+    }
+    *(tmpBuff-1) = '\t';
+
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.interfaceLddt, tmpBuff);    
     *(tmpBuff-1) = '\t';
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.u[0][0], tmpBuff);
@@ -414,11 +422,9 @@ double computeChainTmScore(AlignedCoordinate &qchain, AlignedCoordinate &tchain,
     float d02 = d0*d0;
 
     Coordinates tmt(alnLen);
-    // BasicFunction::do_rotation(tchain.x, tchain.y, tchain.z, tmt, alnLen, t, u);
     for (unsigned int k=0; k<alnLen; k++) {
         float tmx, tmy, tmz;
         BasicFunction::transform(t, u, tchain.x[k], tchain.y[k], tchain.z[k], tmx, tmy, tmz);
-        // double di = BasicFunction::dist(qchain.x[k], qchain.y[k], qchain.z[k], tmt.x[k], tmt.y[k], tmt.z[k]);
         double di = BasicFunction::dist(qchain.x[k], qchain.y[k], qchain.z[k], tmx, tmy, tmz);
         tmscore += 1/(1+di/d02);
     }
@@ -451,7 +457,8 @@ static void getlookupInfo(
         const std::string &file,
         std::map<unsigned int, unsigned int> &chainKeyToComplexIdLookup,
         std::vector<Complex> &complexes,
-        std::map<unsigned int, unsigned int> &complexIdtoIdx
+        std::map<unsigned int, unsigned int> &complexIdtoIdx,
+        std::map<unsigned int, std::string> &chainKeyToChainNameMap
 ) {
     if (file.length() == 0) {
         return;
@@ -477,6 +484,9 @@ static void getlookupInfo(
             std::string chainName(entry[1], (entry[2] - entry[1]) - 1);
             size_t lastUnderscoreIndex = chainName.find_last_of('_');
             std::string complexName = chainName.substr(0, lastUnderscoreIndex);
+
+            chainName = chainName.substr(lastUnderscoreIndex + 1, chainName.size()); // 7soy_1.pdb_A -> A
+            chainKeyToChainNameMap.emplace(chainKey, chainName);
 
             if (complexId != prevComplexId) {
                 
@@ -542,26 +552,21 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
     std::vector<Complex> qComplexes, tComplexes;
     std::map<unsigned int, unsigned int> qComplexIdToIdx, tComplexIdToIdx;
     chainKeyToComplexId_t qChainKeyToComplexIdMap, tChainKeyToComplexIdMap;
+    chainKeyToChainName_t qChainKeyToChainNameMap, tChainKeyToChainNameMap;
 
-    getlookupInfo(qDbr, qLookupFile, qChainKeyToComplexIdMap, qComplexes, qComplexIdToIdx);
+    getlookupInfo(qDbr, qLookupFile, qChainKeyToComplexIdMap, qComplexes, qComplexIdToIdx, qChainKeyToChainNameMap);
     getComplexResidueLength(qDbr, qComplexes);
     Debug::Progress progress(qComplexes.size());
 
     if (sameDB) {
         tChainKeyToComplexIdMap = qChainKeyToComplexIdMap;
+        tChainKeyToChainNameMap = qChainKeyToChainNameMap;
         tComplexes = qComplexes;
         tComplexIdToIdx = qComplexIdToIdx;
     } else {
-        getlookupInfo(tDbr, tLookupFile, tChainKeyToComplexIdMap, tComplexes, tComplexIdToIdx);
+        getlookupInfo(tDbr, tLookupFile, tChainKeyToComplexIdMap, tComplexes, tComplexIdToIdx, tChainKeyToChainNameMap);
         getComplexResidueLength(tDbr, tComplexes);
     }
-    // std::vector<unsigned int> qComplexOrder(qComplexes.size());
-    // for (size_t qComplexIdx = 0; qComplexIdx < qComplexes.size(); qComplexIdx++) {
-    //         qComplexOrder[qComplexIdx] = qComplexIdx;
-    // }
-    // std::sort(qComplexOrder.begin(), qComplexOrder.end(), [&qComplexes](unsigned int lhs, unsigned int rhs) {
-    //           return qComplexes[lhs].chainKeys.size() > qComplexes[rhs].chainKeys.size();
-    //       });
     
 #pragma omp parallel num_threads(localThreads) 
     {   
@@ -573,10 +578,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
 #endif
         resultToWrite_t result;
         std::map<unsigned int, ComplexFilterCriteria> localComplexMap;
-        // std::vector< ComplexFilterCriteria> localComplexVector;
         std::map<unsigned int, std::vector<unsigned int>> cmplIdToBestAssId;
-        // std::vector<unsigned int> cmpltargetIds;
-        // std::vector<double> targetIdBestTm;
         std::vector<unsigned int> selectedAssIDs;
         Coordinate16 qcoords;
         Coordinate16 tcoords;
@@ -584,7 +586,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
         Matcher::result_t res;   
 #pragma omp for schedule(dynamic, 1) 
         for (size_t qComplexIdx = 0; qComplexIdx < qComplexes.size(); qComplexIdx++) {
-        // for (size_t qComplexIdx : qComplexOrder) {
             progress.updateProgress();
             Complex qComplex = qComplexes[qComplexIdx];
             unsigned int qComplexId = qComplex.complexId;
@@ -618,7 +619,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     unsigned int tChainDbId = tDbr->sequenceReader->getId(tChainKey);
                     unsigned int tComplexId = tChainKeyToComplexIdMap.at(tChainKey);
                     unsigned int tComplexIdx = tComplexIdToIdx.at(tComplexId);
-                    std::vector<unsigned int> tChainKeys = tComplexes[tComplexIdx].chainKeys;
+
                     //if target is monomer, but user doesn't want, continue
                     unsigned int tChainAlnId = alnDbr.getId(tChainKey);
                     if (tChainAlnId == NOT_AVAILABLE_CHAIN_KEY) {
@@ -630,49 +631,40 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     fillTArr(retComplex.tString, t);
                     unsigned int qalnlen = (std::max(res.qStartPos, res.qEndPos) - std::min(res.qStartPos, res.qEndPos) + 1);
                     unsigned int talnlen = (std::max(res.dbStartPos, res.dbEndPos) - std::min(res.dbStartPos, res.dbEndPos) + 1);
-                    // if (localComplexVector.size() <= assId) {
-                    //     ComplexFilterCriteria cmplfiltcrit(tComplexId, retComplex.qTmScore, retComplex.tTmScore, t, u);
-                    //     size_t subt = assId - localComplexVector.size();
-                    //     for (size_t sub=0; sub < subt; sub ++) {
-                    //         localComplexVector.push_back(cmplfiltcrit);
-                    //     }
-                    //     localComplexVector.push_back(cmplfiltcrit);
-                    // }
+
                     if (localComplexMap.find(assId) == localComplexMap.end()) {
                         ComplexFilterCriteria cmplfiltcrit(tComplexId, retComplex.qTmScore, retComplex.tTmScore, t, u);
                         localComplexMap[assId] = cmplfiltcrit;
                     }
                     ComplexFilterCriteria &cmplfiltcrit = localComplexMap.at(assId);
-                    // ComplexFilterCriteria &cmplfiltcrit = localComplexVector.at(assId);
                     cmplfiltcrit.updateAln(qalnlen, talnlen);
     
                     // save Aligned coordinatese if needed : chainTmThr & lddtThr
+                    // TODO: modify later
                     if (par.filtChainTmThr > 0.0f || par.filtInterfaceLddtThr > 0.0f) {
                         char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
                         size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
                         float* tdata = tcoords.read(tcadata, res.dbLen, tCaLength);
 
                         unsigned int alnLen = cigarToAlignedLength(res.backtrace);
-                        cmplfiltcrit.fillChainAlignment(qChainKey, tChainKey, alnLen, qdata, tdata, res.backtrace, res.qStartPos, res.dbStartPos, res.qLen, res.dbLen);
-                        // if (par.filtChainTmThr > 0.0f) {
+                        cmplfiltcrit.fillChainAlignment(qChainKey, tChainKey, 
+                            alnLen, qdata, tdata, res.backtrace, res.qStartPos, res.dbStartPos, res.qLen, res.dbLen);
+
                         double chainTm = computeChainTmScore(cmplfiltcrit.qAlnChains.back(), cmplfiltcrit.tAlnChains.back(), t, u, res.dbLen);
                         cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);
-                        // }
+    
                     }
                 } // while end
             }
             
             // Filter the target complexes and get the best alignment
-            // for (unsigned int assId = 0; assId < localComplexVector.size(); assId++) {
             for (auto& assId_res : localComplexMap) {
                 unsigned int tComplexId  = assId_res.second.targetComplexId;
-                // unsigned int tComplexId  = localComplexVector.at(assId).targetComplexId;
                 
                 unsigned int tComplexIdx = tComplexIdToIdx.at(tComplexId);
                 Complex  tComplex = tComplexes[tComplexIdx];
 
                 ComplexFilterCriteria &cmplfiltcrit = assId_res.second;
-                // ComplexFilterCriteria &cmplfiltcrit = localComplexVector.at(assId);
                 cmplfiltcrit.calcCov(qComplex.complexLength, tComplex.complexLength);
 
                 if (par.filtInterfaceLddtThr > 0.0) {
@@ -693,49 +685,75 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     if (alnlen > cmplIdToBestAssId.at(tComplexId)[1]) {
                         cmplIdToBestAssId[tComplexId] = {assId_res.first, alnlen};
                     }
-                    // if (cmplfiltcrit.avgTm > cmplIdToBestAssId.at(tComplexId)[1]) {
-                    //     cmplIdToBestAssId[tComplexId] = {static_cast<double>(assId_res.first), cmplfiltcrit.avgTm};
-                    //     // cmplIdToBestAssId[tComplexId] = {static_cast<double>(assId_res), cmplfiltcrit.avgTm};
-                    // }
+
                 }
                 
-                // unsigned int targetindex;
-                // auto it = std::find(cmpltargetIds.begin(), cmpltargetIds.end(), tComplexId);
-                // if ( it == cmpltargetIds.end()) {
-                //     cmpltargetIds.push_back(tComplexId);
-                //     selectedAssIDs.push_back(assId);
-                //     targetIdBestTm.push_back(cmplfiltcrit.avgTm);
-                // } else {
-                //     targetindex = std::distance(cmpltargetIds.begin(), it);
-                //     if (cmplfiltcrit.avgTm > targetIdBestTm[targetindex]) {
-                //         targetIdBestTm[targetindex] = cmplfiltcrit.avgTm;
-                //         selectedAssIDs[targetindex] = assId;
-                //     }
-                // }
-
             }
 
             for (const auto& pair : cmplIdToBestAssId) {
                 selectedAssIDs.push_back(pair.second[0]);
             }
+
             resultWrite5.writeStart(thread_idx);
             for (unsigned int assIdidx = 0; assIdidx < selectedAssIDs.size(); assIdidx++) {
                 unsigned int assId = selectedAssIDs.at(assIdidx);
                 ComplexFilterCriteria &cmplfiltcrit = localComplexMap.at(assId);
-                // ComplexFilterCriteria &cmplfiltcrit = localComplexVector.at(assId);
+
                 unsigned int tComplexId = cmplfiltcrit.targetComplexId;
                 unsigned int tComplexIdx = tComplexIdToIdx.at(tComplexId);
                 Complex tComplex = tComplexes.at(tComplexIdx);
+
+                std::string qComplexName = qComplex.complexName;
+                std::string tComplexName = tComplex.complexName;
+                std::string qChainNames = "";
+                std::string tChainNames = "";
+
+                if (cmplfiltcrit.qAlnChainKeys.size() > 0) { // If chain alignment is saved : chainTmThr & lddtThr
+                    qChainNames = qChainKeyToChainNameMap.at(cmplfiltcrit.qAlnChainKeys[0]);
+                    tChainNames = tChainKeyToChainNameMap.at(cmplfiltcrit.tAlnChainKeys[0]);
+                    for (size_t chainIdx = 1; chainIdx < cmplfiltcrit.qAlnChainKeys.size(); chainIdx++) {
+                        unsigned int qChainKey = cmplfiltcrit.qAlnChainKeys[chainIdx];
+                        unsigned int tChainKey = cmplfiltcrit.tAlnChainKeys[chainIdx];
+                        std::string qChainName = qChainKeyToChainNameMap.at(qChainKey);
+                        std::string tChainName = tChainKeyToChainNameMap.at(tChainKey);
+                        qChainNames+= ","+qChainName;
+                        tChainNames+= ","+tChainName;
+                    }
+                }
                 
                 char *outpos = Itoa::u32toa_sse2(tComplexId, buffer);
                 result.append(buffer, (outpos - buffer - 1));
                 result.push_back('\n');
 
-                char * tmpBuff = Itoa::u32toa_sse2(tComplexId, buffer2);
+                // DOING
+                
+                char * tmpBuff = buffer2 + sprintf(buffer2, "%s\t%s\t%s\t%s\t", qComplexName.c_str(), tComplexName.c_str(), qChainNames.c_str(), tChainNames.c_str()) +1;
+
+                
+                
+                // tmpBuff = strncpy(tmpBuff, qComplexName.c_str(), qComplexName.size());
+                // tmpBuff += qComplexName.size();
+                // *(tmpBuff-1) = '\t';
+
+                // tmpBuff = strncpy(tmpBuff, tComplexName.c_str(), tComplexName.size());
+                // tmpBuff += tComplexName.size();
+                // *(tmpBuff-1) = '\t';
+
+                // tmpBuff = strncpy(tmpBuff, qChainNames.c_str(), qChainNames.size());
+                // tmpBuff += qChainNames.size();
+                // *(tmpBuff-1) = '\t';
+
+                // tmpBuff = strncpy(tmpBuff, tChainNames.c_str(), tChainNames.size());
+                // tmpBuff += tChainNames.size();
+
+                // char * tmpBuff = Itoa::u32toa_sse2(qComplexId, buffer2);
+                // *(tmpBuff-1) = '\t';
+                // char * tmpBuff = Itoa::u32toa_sse2(tComplexId, buffer2);
                 tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
                 resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
             }
-            if (selectedAssIDs.size() == 0) {
+
+            if (selectedAssIDs.size() == 0) { // TODO : modify this code not to repeat the code above
                 float t[3];
                 float u[3][3];
                 for (int i=0; i < 3; i++) {
@@ -750,6 +768,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 cmplfiltcrit.qCov = 1.0;
                 cmplfiltcrit.tCov = 1.0;
                 cmplfiltcrit.interfaceLddt = 1.0;
+
                 resultWrite5.writeStart(thread_idx);
                 char * tmpBuff = Itoa::u32toa_sse2(qComplexId, buffer2);
                 tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
@@ -767,10 +786,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             result.clear();
             localComplexMap.clear();
             cmplIdToBestAssId.clear();
-            selectedAssIDs.clear();        
-            // localComplexVector.clear();
-            // cmpltargetIds.clear();
-            // targetIdBestTm.clear();
+            selectedAssIDs.clear();
         } // for end
     } // MP end
     
