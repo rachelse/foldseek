@@ -640,7 +640,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     cmplfiltcrit.updateAln(qalnlen, talnlen);
     
                     // save Aligned coordinatese if needed : chainTmThr & lddtThr
-                    // TODO: modify later
                     if (par.filtChainTmThr > 0.0f || par.filtInterfaceLddtThr > 0.0f) {
                         char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
                         size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
@@ -708,6 +707,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 std::string qChainNames = "";
                 std::string tChainNames = "";
 
+                // Add chain names if chain alignment is saved
                 if (cmplfiltcrit.qAlnChainKeys.size() > 0) { // If chain alignment is saved : chainTmThr & lddtThr
                     qChainNames = qChainKeyToChainNameMap.at(cmplfiltcrit.qAlnChainKeys[0]);
                     tChainNames = tChainKeyToChainNameMap.at(cmplfiltcrit.tAlnChainKeys[0]);
@@ -725,30 +725,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 result.append(buffer, (outpos - buffer - 1));
                 result.push_back('\n');
 
-                // DOING
-                
                 char * tmpBuff = buffer2 + sprintf(buffer2, "%s\t%s\t%s\t%s\t", qComplexName.c_str(), tComplexName.c_str(), qChainNames.c_str(), tChainNames.c_str()) +1;
-
-                
-                
-                // tmpBuff = strncpy(tmpBuff, qComplexName.c_str(), qComplexName.size());
-                // tmpBuff += qComplexName.size();
-                // *(tmpBuff-1) = '\t';
-
-                // tmpBuff = strncpy(tmpBuff, tComplexName.c_str(), tComplexName.size());
-                // tmpBuff += tComplexName.size();
-                // *(tmpBuff-1) = '\t';
-
-                // tmpBuff = strncpy(tmpBuff, qChainNames.c_str(), qChainNames.size());
-                // tmpBuff += qChainNames.size();
-                // *(tmpBuff-1) = '\t';
-
-                // tmpBuff = strncpy(tmpBuff, tChainNames.c_str(), tChainNames.size());
-                // tmpBuff += tChainNames.size();
-
-                // char * tmpBuff = Itoa::u32toa_sse2(qComplexId, buffer2);
-                // *(tmpBuff-1) = '\t';
-                // char * tmpBuff = Itoa::u32toa_sse2(tComplexId, buffer2);
                 tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
                 resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
             }
