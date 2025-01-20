@@ -325,12 +325,12 @@ char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.tTm, tmpBuff);
     *(tmpBuff-1) = '\t';
 
-    for (int i = 0; i < cmplfiltcrit.qAlnChainKeys.size(); i++) {
+    for (unsigned int i = 0; i < cmplfiltcrit.qAlnChainKeys.size(); i++) {
         tmpBuff = fastfloatToBuffer(cmplfiltcrit.qAlnChainTms[i], tmpBuff);
         *(tmpBuff-1) = ',';
     }
     *(tmpBuff-1) = '\t';
-    for (int i = 0; i < cmplfiltcrit.tAlnChainKeys.size(); i++) {
+    for (unsigned int i = 0; i < cmplfiltcrit.tAlnChainKeys.size(); i++) {
         tmpBuff = fastfloatToBuffer(cmplfiltcrit.tAlnChainTms[i], tmpBuff);
         *(tmpBuff-1) = ',';
     }
@@ -618,7 +618,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     unsigned int tChainKey = res.dbKey;
                     unsigned int tChainDbId = tDbr->sequenceReader->getId(tChainKey);
                     unsigned int tComplexId = tChainKeyToComplexIdMap.at(tChainKey);
-                    unsigned int tComplexIdx = tComplexIdToIdx.at(tComplexId);
 
                     //if target is monomer, but user doesn't want, continue
                     unsigned int tChainAlnId = alnDbr.getId(tChainKey);
@@ -650,8 +649,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                             alnLen, qdata, tdata, res.backtrace, res.qStartPos, res.dbStartPos, res.qLen, res.dbLen);
 
                         double chainTm = computeChainTmScore(cmplfiltcrit.qAlnChains.back(), cmplfiltcrit.tAlnChains.back(), t, u, res.dbLen);
-                        cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);
-    
+                        cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);    
                     }
                 } // while end
             }
@@ -692,7 +690,32 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             for (const auto& pair : cmplIdToBestAssId) {
                 selectedAssIDs.push_back(pair.second[0]);
             }
+            if (selectedAssIDs.size() == 0) { // TODO : modify this code not to repeat the code below
+                float t[3];
+                float u[3][3];
+                for (int i=0; i < 3; i++) {
+                    t[i] = 0.0;
+                }
+                for (int i=0; i < 3; i++) {
+                    for (int j=0; j < 3; j++) {
+                        u[i][j] = 0.0;
+                    }
+                }
+                ComplexFilterCriteria cmplfiltcrit(qComplexId, 1.0, 1.0, t, u);
+                cmplfiltcrit.qCov = 1.0;
+                cmplfiltcrit.tCov = 1.0;
+                cmplfiltcrit.interfaceLddt = 1.0;
 
+                resultWrite5.writeStart(thread_idx);
+                char * tmpBuff = Itoa::u32toa_sse2(qComplexId, buffer2);
+                tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
+                resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
+
+                char *outpos = Itoa::u32toa_sse2(qComplexId, buffer);
+                result.append(buffer, (outpos - buffer - 1));
+                result.push_back('\n');
+            }
+            
             resultWrite5.writeStart(thread_idx);
             for (unsigned int assIdidx = 0; assIdidx < selectedAssIDs.size(); assIdidx++) {
                 unsigned int assId = selectedAssIDs.at(assIdidx);
@@ -725,36 +748,11 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 result.append(buffer, (outpos - buffer - 1));
                 result.push_back('\n');
 
-                char * tmpBuff = buffer2 + sprintf(buffer2, "%s\t%s\t%s\t%s\t", qComplexName.c_str(), tComplexName.c_str(), qChainNames.c_str(), tChainNames.c_str()) +1;
+                char * tmpBuff = buffer2 + sprintf(buffer2, "%s\t%s\t%s\t%s", qComplexName.c_str(), tComplexName.c_str(), qChainNames.c_str(), tChainNames.c_str()) +1;
                 tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
                 resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
             }
 
-            if (selectedAssIDs.size() == 0) { // TODO : modify this code not to repeat the code above
-                float t[3];
-                float u[3][3];
-                for (int i=0; i < 3; i++) {
-                    t[i] = 0.0;
-                }
-                for (int i=0; i < 3; i++) {
-                    for (int j=0; j < 3; j++) {
-                        u[i][j] = 0.0;
-                    }
-                }
-                ComplexFilterCriteria cmplfiltcrit(qComplexId, 1.0, 1.0, t, u);
-                cmplfiltcrit.qCov = 1.0;
-                cmplfiltcrit.tCov = 1.0;
-                cmplfiltcrit.interfaceLddt = 1.0;
-
-                resultWrite5.writeStart(thread_idx);
-                char * tmpBuff = Itoa::u32toa_sse2(qComplexId, buffer2);
-                tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
-                resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
-
-                char *outpos = Itoa::u32toa_sse2(qComplexId, buffer);
-                result.append(buffer, (outpos - buffer - 1));
-                result.push_back('\n');
-            }
             // if (qComplexId == 1) {
             //     Debug(Debug::WARNING)<< "hi\n";
             // }

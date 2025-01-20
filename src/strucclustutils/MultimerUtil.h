@@ -314,8 +314,9 @@ static char* fastfloatToBuffer(float value, char* buffer) {
     }
     int value1 = (int)(value);
     buffer = Itoa::i32toa_sse2(value1, buffer);
-    *(buffer) = '.';
-    buffer++;
+    // buffer--;
+    *(buffer-1) = '.';
+    // buffer++;
 
     double value2 = value - value1;
     if (value2 < 0.1){
