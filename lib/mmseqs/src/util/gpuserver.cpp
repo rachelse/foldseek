@@ -31,7 +31,8 @@ int gpuserver(int argc, const char **argv, const Command& command) {
 
     const bool isGpuDb = DBReader<unsigned int>::getExtendedDbtype(dbr->getDbtype()) & Parameters::DBTYPE_EXTENDED_GPU;
     if (isGpuDb == false) {
-        Debug(Debug::ERROR) << "Database " << FileUtil::baseName(par.db1) << " is not a valid GPU database\n";
+        Debug(Debug::ERROR) << "Database " << FileUtil::baseName(par.db1) << " is not a valid GPU database\n"
+                            << "Please call: makepaddedseqdb " << FileUtil::baseName(par.db2) << " " << FileUtil::baseName(par.db2) << "_pad\n";
         EXIT(EXIT_FAILURE);
     }
 
@@ -46,13 +47,6 @@ int gpuserver(int argc, const char **argv, const Command& command) {
     }
     offsets.emplace_back(offsets.back() + lengths.back());
     int32_t maxTargetLength = lengths.back();
-
-    std::string dbrName  = par.db1;
-    std::string dbrRelPath = FileUtil::getRealPathFromSymLink(PrefilteringIndexReader::dbPathWithoutIndex(dbrName));
-    size_t hash = Util::hash(dbrRelPath.c_str(), dbrRelPath.length());
-
-    std::string shmFile = SSTR(hash);
-    GPUSharedMemory* layout = GPUSharedMemory::alloc(shmFile, par.maxSeqLen , par.maxResListLen); // Adjust sizes as necessary
 
     BaseMatrix *subMat;
     if (Parameters::isEqualDbtype(dbrIdx.sequenceReader->getDbtype(), Parameters::DBTYPE_NUCLEOTIDES)) {
@@ -77,6 +71,9 @@ int gpuserver(int argc, const char **argv, const Command& command) {
     // Set up the handler for SIGINT and SIGTERM
     sigaction(SIGINT, &act, NULL);
     sigaction(SIGTERM, &act, NULL);
+
+    std::string shmFile = GPUSharedMemory::getShmHash(par.db1);
+    GPUSharedMemory* layout = GPUSharedMemory::alloc(shmFile, par.maxSeqLen, par.maxResListLen);
     Debug(Debug::WARNING) << shmFile << "\n";
     while (keepRunning) {
         while (layout->serverReady.load(std::memory_order_acquire) == 0 || layout->clientReady.load(std::memory_order_acquire) == 0) {
