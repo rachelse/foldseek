@@ -287,6 +287,7 @@ public:
         if (intLen == 0) {
             return;
         }
+
         AlignedCoordinate qInterface(intLen);
         AlignedCoordinate tInterface(intLen);
         size_t idx = 0;
@@ -639,18 +640,18 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     cmplfiltcrit.updateAln(qalnlen, talnlen);
     
                     // save Aligned coordinatese if needed : chainTmThr & lddtThr
-                    if (par.filtChainTmThr > 0.0f || par.filtInterfaceLddtThr > 0.0f) {
-                        char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
-                        size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
-                        float* tdata = tcoords.read(tcadata, res.dbLen, tCaLength);
+                    // if (par.filtChainTmThr > 0.0f || par.filtInterfaceLddtThr > 0.0f) { //RECOVER this
+                    char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
+                    size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
+                    float* tdata = tcoords.read(tcadata, res.dbLen, tCaLength);
 
-                        unsigned int alnLen = cigarToAlignedLength(res.backtrace);
-                        cmplfiltcrit.fillChainAlignment(qChainKey, tChainKey, 
-                            alnLen, qdata, tdata, res.backtrace, res.qStartPos, res.dbStartPos, res.qLen, res.dbLen);
+                    unsigned int alnLen = cigarToAlignedLength(res.backtrace);
+                    cmplfiltcrit.fillChainAlignment(qChainKey, tChainKey, 
+                        alnLen, qdata, tdata, res.backtrace, res.qStartPos, res.dbStartPos, res.qLen, res.dbLen);
 
-                        double chainTm = computeChainTmScore(cmplfiltcrit.qAlnChains.back(), cmplfiltcrit.tAlnChains.back(), t, u, res.dbLen);
-                        cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);    
-                    }
+                    double chainTm = computeChainTmScore(cmplfiltcrit.qAlnChains.back(), cmplfiltcrit.tAlnChains.back(), t, u, res.dbLen);
+                    cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);    
+                    // }
                 } // while end
             }
             
@@ -664,9 +665,9 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 ComplexFilterCriteria &cmplfiltcrit = assId_res.second;
                 cmplfiltcrit.calcCov(qComplex.complexLength, tComplex.complexLength);
 
-                if (par.filtInterfaceLddtThr > 0.0) {
-                    cmplfiltcrit.computeInterfaceLddt();
-                }
+                // if (par.filtInterfaceLddtThr > 0.0) { //RECOVER this
+                cmplfiltcrit.computeInterfaceLddt();
+                // }
 
                 // Check if the criteria are met
                 if (!(cmplfiltcrit.satisfy(par.covMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
@@ -706,14 +707,8 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 cmplfiltcrit.tCov = 1.0;
                 cmplfiltcrit.interfaceLddt = 1.0;
 
-                resultWrite5.writeStart(thread_idx);
-                char * tmpBuff = Itoa::u32toa_sse2(qComplexId, buffer2);
-                tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
-                resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
-
-                char *outpos = Itoa::u32toa_sse2(qComplexId, buffer);
-                result.append(buffer, (outpos - buffer - 1));
-                result.push_back('\n');
+                selectedAssIDs.push_back(0);
+                localcomplexMap.insert({0, cmplfiltcrit});
             }
             
             resultWrite5.writeStart(thread_idx);
@@ -748,7 +743,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 result.append(buffer, (outpos - buffer - 1));
                 result.push_back('\n');
 
-                char * tmpBuff = buffer2 + sprintf(buffer2, "%s\t%s\t%s\t%s", qComplexName.c_str(), tComplexName.c_str(), qChainNames.c_str(), tChainNames.c_str()) +1;
+                char * tmpBuff = buffer2 + sprintf(buffer2, "%d\t%s\t%s\t%s", qComplexId, tComplexName.c_str(), qChainNames.c_str(), tChainNames.c_str()) +1;
                 tmpBuff = filterToBuffer(cmplfiltcrit, tmpBuff);
                 resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
             }
