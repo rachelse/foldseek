@@ -9,8 +9,10 @@ jobs:
   test1:
     runs-on: ubuntu-latest
     steps:
-            - name: gpu-avil
-              run: nvidia-smi
+        - name: hostname
+          run: cat /etc/hostname
+        - name: gpu-avil
+          run: nvidia-smi
             #- uses: actions/checkout@v4
             #- uses: actions/setup-node@v4
             #with:
