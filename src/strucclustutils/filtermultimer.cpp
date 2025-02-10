@@ -691,7 +691,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             for (const auto& pair : cmplIdToBestAssId) {
                 selectedAssIDs.push_back(pair.second[0]);
             }
-            if (selectedAssIDs.size() == 0) { // TODO : modify this code not to repeat the code below
+            if (selectedAssIDs.size() == 0) {
                 float t[3];
                 float u[3][3];
                 for (int i=0; i < 3; i++) {
@@ -708,7 +708,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 cmplfiltcrit.interfaceLddt = 1.0;
 
                 selectedAssIDs.push_back(0);
-                localcomplexMap.insert({0, cmplfiltcrit});
+                localComplexMap.insert({0, cmplfiltcrit});
             }
             
             resultWrite5.writeStart(thread_idx);
@@ -748,9 +748,6 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 resultWrite5.writeAdd(buffer2, tmpBuff - buffer2, thread_idx);
             }
 
-            // if (qComplexId == 1) {
-            //     Debug(Debug::WARNING)<< "hi\n";
-            // }
             resultWriter.writeData(result.c_str(), result.length(), qComplexId, thread_idx);
             resultWrite5.writeEnd(qComplexId, thread_idx);
             result.clear();
