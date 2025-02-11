@@ -286,6 +286,24 @@ LocalParameters::LocalParameters() :
     convert2pdb.push_back(&PARAM_THREADS);
     convert2pdb.push_back(&PARAM_V);
 
+    // set masking
+    maskMode = 0;
+    maskNrepeats = 6;
+    maskProb = 0.999995;
+    maskLowerCaseMode = 1;
+
+    // createdb
+    maskBfactorThreshold = 0;
+    chainNameMode = 0;
+    writeMapping = 0;
+    coordStoreMode = COORD_STORE_MODE_CA_DIFF;
+    inputFormat = 0; // auto detect
+    fileInclude = ".*";
+    fileExclude = "^$";
+    prostt5SplitLength = 1024;
+    prostt5Model = "";
+
+    // search parameter
     alignmentType = ALIGNMENT_TYPE_3DI_AA;
     tmScoreThr = 0.0;
     tmScoreThrMode = TMSCORE_THRESHOLD_MODE_ALIGNMENT;
@@ -293,36 +311,28 @@ LocalParameters::LocalParameters() :
     lddtThr = 0.0;
     evalThr = 10;
     sortByStructureBits = 1;
+    clusterSearch = 0;
     minDiagScoreThr = 30;
-    maskBfactorThreshold = 0;
-    chainNameMode = 0;
     minAssignedChainsThreshold = 0.0;
     monomerIncludeMode = 0;
-    writeMapping = 0;
     tmAlignFast = 1;
     exactTMscore = 0;
     gapOpen = 10;
     gapExtend = 1;
     nsample = 5000;
-    maskLowerCaseMode = 1;
-    coordStoreMode = COORD_STORE_MODE_CA_DIFF;
-    clusterSearch = 0;
-    inputFormat = 0; // auto detect
-    fileInclude = ".*";
-    fileExclude = "^$";
     dbSuffixList = "_h,_ss,_ca";
     indexExclude = 0;
-    multimerReportMode = 1;
+
+    // multimer
     eValueThrExpandMultimer = 10000.0;
-    prostt5SplitLength = 1024;
-    prostt5Model = "";
+    multimerReportMode = 1;
     dbExtractionMode = DB_EXTRACT_MODE_CHAIN;
     distanceThreshold = 8.0;
     filtMultimerTmThr = 0.0;
     filtChainTmThr = 0.0;
     filtInterfaceLddtThr = 0.0;
     citations.emplace(CITATION_FOLDSEEK, "van Kempen, M., Kim, S.S., Tumescheit, C., Mirdita, M., Lee, J., Gilchrist, C.L.M., Söding, J., and Steinegger, M. Fast and accurate protein structure search with Foldseek. Nature Biotechnology, doi:10.1038/s41587-023-01773-0 (2023)");
-    citations.emplace(CITATION_FOLDSEEK_MULTIMER, "Kim, W., Mirdita, M., Levy Karin, E., Gilchrist, C.L.M., Schweke, H., Söding, J., Levy, E., and Steinegger, M. Rapid and Sensitive Protein Complex Alignment with Foldseek-Multimer. bioRxiv, doi:10.1101/2024.04.14.589414 (2024)");
+    citations.emplace(CITATION_FOLDSEEK_MULTIMER, "Kim, W., Mirdita, M., Levy Karin, E., Gilchrist, C.L.M., Schweke, H., Söding, J., Levy, E., and Steinegger, M. Rapid and sensitive protein complex alignment with Foldseek-Multimer. Nature Methods, doi:10.1038/s41592-025-02593-7 (2025)");
     citations.emplace(CITATION_PROSTT5, "Heinzinger, M., Weissenow, K., Gomez Sanchez, J., Henkel, A., Mirdita, M., Steinegger, M., and Burkhard, R. Bilingual Language Model for Protein Sequence and Structure. NAR Genomics and Bioinformatics, doi:10.1093/nargab/lqae150 (2024)");
     
     //rewrite param vals.
