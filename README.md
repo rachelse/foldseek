@@ -8,7 +8,7 @@ Foldseek enables fast and sensitive comparisons of large protein structure sets,
 
 [Barrio-Hernandez I, Yeo J, Jänes J, Mirdita M, Gilchrist CLM, Wein T, Varadi M, Velankar S, Beltrao P and Steinegger M. Clustering predicted structures at the scale of the known protein universe. Nature, doi:10.1038/s41586-023-06510-w (2023)](https://www.nature.com/articles/s41586-023-06510-w)
 
-[Kim W, Mirdita M, Levy Karin E, Gilchrist CLM, Schweke H, Söding J, Levy E, and Steinegger M. Rapid and Sensitive Protein Complex Alignment with Foldseek-Multimer. bioRxiv, doi:10.1101/2024.04.14.589414 (2024)](https://www.biorxiv.org/content/10.1101/2024.04.14.589414v1)
+[Kim W, Mirdita M, Levy Karin E, Gilchrist CLM, Schweke H, Söding J, Levy E, and Steinegger M. Rapid and sensitive protein complex alignment with Foldseek-Multimer. Nature Methods, doi:10.1038/s41592-025-02593-7 (2025)](https://www.nature.com/articles/s41592-025-02593-7)
 
 # Table of Contents
 
@@ -31,6 +31,7 @@ Foldseek enables fast and sensitive comparisons of large protein structure sets,
     - [Databases](#databases)
       - [Create custom databases and indexes](#create-custom-databases-and-indexes)
       - [Create custom database from protein sequence (FASTA)](#create-custom-database-from-protein-sequence-fasta)
+      - [Pad database for fast GPU search](#pad-database-for-fast-gpu-search)
     - [Cluster](#cluster)
       - [Output Cluster](#output-cluster)
         - [Tab-separated cluster](#tab-separated-cluster)
@@ -66,7 +67,7 @@ wget https://mmseqs.com/foldseek/foldseek-linux-avx2.tar.gz; tar xvzf foldseek-l
 # Linux ARM64 build
 wget https://mmseqs.com/foldseek/foldseek-linux-arm64.tar.gz; tar xvzf foldseek-linux-arm64.tar.gz; export PATH=$(pwd)/foldseek/bin/:$PATH
 
-# Linux AVX2 & GPU build (req. glibc >= 2.29 and nvidia driver >=525.60.13)
+# Linux AVX2 & GPU build (req. glibc >= 2.17 and nvidia driver >=525.60.13)
 wget https://mmseqs.com/foldseek/foldseek-linux-gpu.tar.gz; tar xvfz foldseek-linux-gpu.tar.gz; export PATH=$(pwd)/foldseek/bin/:$PATH
 
 # MacOS
@@ -204,6 +205,15 @@ foldseek createdb db.fasta db --prostt5-model weights --gpu 1
 - Use the `CUDA_VISIBLE_DEVICES` variable to select the GPU device(s).
   - `CUDA_VISIBLE_DEVICES=0` to use GPU 0.
   - `CUDA_VISIBLE_DEVICES=0,1` to use GPUs 0 and 1.
+ 
+#### Pad database for fast GPU search
+GPU searches require the database to be reformatted, with padding added to each sequence using the `makepaddedseqdb` command. The padded database can be used for both CPU and GPU searches.
+```
+# Prepare the database for GPU search
+foldseek makepaddedseqdb db db_pad
+# Perform GPU search
+foldseek search db db_pad result_dir --gpu 1
+```
 
 ### Cluster
 The `easy-cluster` algorithm is designed for structural clustering by assigning structures to a representative protein structure using structural alignment. It accepts input in either as protein structures as PDB/mmCIF or protein sequences as [fasta](#create-custom-database-from-protein-sequence-fasta) format, with support for both flat and gzipped files. By default, easy-cluster generates three output files with the following prefixes: (1) `_clu.tsv`, (2) `_repseq.fasta`, and (3) `_allseq.fasta`. The first file (1) is a [tab-separated](#tab-separated-cluster) file describing the mapping from representative to member, while the second file (2) contains only [representative sequences](#representative-fasta), and the third file (3) includes all [cluster member sequences](#all-member-fasta).
