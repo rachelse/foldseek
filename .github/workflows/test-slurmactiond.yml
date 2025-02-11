@@ -9,8 +9,6 @@ jobs:
   test1:
     runs-on: [ self-hosted, slurm ]
     steps:
-        - name: hostname
-          run: cat /etc/hostname
         - name: gpu-avil
           run: nvidia-smi
             #- uses: actions/checkout@v4
