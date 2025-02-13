@@ -9,9 +9,11 @@ jobs:
   test1:
     runs-on: [ self-hosted, slurm ]
     steps:
-        - name: gpu-avil
-          run: nvidia-smi
-            #- uses: actions/checkout@v4
+      - name: info
+        run: lscpu
+      - name: gpu-avil
+        run: nvidia-smi
+            #- uses: actions/checkout@v3
             #- uses: actions/setup-node@v4
             #with:
             #node-version: '20'
