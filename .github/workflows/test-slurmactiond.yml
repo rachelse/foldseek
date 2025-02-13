@@ -9,6 +9,8 @@ jobs:
   test1:
     runs-on: [ self-hosted, slurm ]
     steps:
+      - name: print host
+        run: cat /etc/hostname
       - name: info
         run: lscpu
       - name: gpu-avil
