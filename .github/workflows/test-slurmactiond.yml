@@ -7,7 +7,7 @@ on:
 
 jobs:
   test_gpu:
-    runs-on: [ self-hosted, dc-03 ]
+    runs-on: [ self-hosted, gpu ]
     steps:
       - name: print host
         run: cat /etc/hostname
