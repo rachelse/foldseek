@@ -31,22 +31,23 @@ struct Complex {
     }
 };
 
-struct AlignedCoordinate {
-    std::vector<float> x;
-    std::vector<float> y;
-    std::vector<float> z;
-    AlignedCoordinate() {}
-    AlignedCoordinate(size_t size) {
-        x.resize(size);
-        y.resize(size);
-        z.resize(size);
-    }
-    ~AlignedCoordinate() {
-        x.clear();
-        y.clear();
-        z.clear();
-    }
-};
+typedef Coordinates AlignedCoordinates;
+// struct AlignedCoordinate {
+//     std::vector<float> x;
+//     std::vector<float> y;
+//     std::vector<float> z;
+//     AlignedCoordinate() {}
+//     AlignedCoordinate(size_t size) {
+//         // x.resize(size);
+//         // y.resize(size);
+//         // z.resize(size);
+//     }
+//     ~AlignedCoordinate() {
+//         // x.clear();
+//         // y.clear();
+//         // z.clear();
+//     }
+// };
 
 unsigned int adjustAlnLen(unsigned int qcov, unsigned int tcov, int covMode) {
     switch (covMode) {
@@ -71,38 +72,45 @@ public:
     float qCov;
     float tCov;
     float interfaceLddt;
-    double qTm;
-    double tTm;
-    double avgTm;
+    float qTm;
+    float tTm;
+    float avgTm;
     float t[3];
     float u[3][3];
+    std::string alnComplexCigar;
 
     // per chain : criteria for chainTmThr & lddtThr
     std::vector<unsigned int> qAlnChainKeys;
     std::vector<unsigned int> tAlnChainKeys;
-    std::vector<AlignedCoordinate> qAlnChains;
-    std::vector<AlignedCoordinate> tAlnChains;
 
-    std::vector<double> qAlnChainTms;
-    std::vector<double> tAlnChainTms;
+    std::vector<float> qAlnChainTms;
+    std::vector<float> tAlnChainTms;
+
+    AlignedCoordinates qAlnCoords;
+    AlignedCoordinates tAlnCoords;
+
+    // std::vector<AlignedCoordinate> qAlnChains;
+    // std::vector<AlignedCoordinate> tAlnChains;
 
     ComplexFilterCriteria() {}
     ComplexFilterCriteria(
-        unsigned int targetComplexId, double qTm, double tTm, float tstring[3], float ustring[3][3]
+        unsigned int targetComplexId, float qTm, float tTm, float tstring[3], float ustring[3][3]
     ) :
-        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), qCov(0), tCov(0), interfaceLddt(0), qTm(qTm), tTm(tTm), avgTm(0) {
+        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), qCov(0), tCov(0), interfaceLddt(0), qTm(qTm), tTm(tTm), avgTm(0), alnComplexCigar("") 
+    {
         std::copy(tstring, tstring + 3, t);
         for (int i = 0; i < 3; i++) {
             std::copy(ustring[i], ustring[i] + 3, u[i]);
         }
     }
     ~ComplexFilterCriteria() {
+        alnComplexCigar.clear();
         qAlnChainTms.clear();
         tAlnChainTms.clear();
         qAlnChainKeys.clear();
         tAlnChainKeys.clear();
-        qAlnChains.clear();
-        tAlnChains.clear();
+        // qAlnChains.clear();
+        // tAlnChains.clear();
     }
 
     bool hasTm(float TmThr, int covMode) {
@@ -201,117 +209,168 @@ public:
         tTotalAlnLen += tAlnLen;
     }
 
-    void updateChainTmScore(double qChainTm, double tChainTm) {
+    unsigned int cigarToAlignedLength() {
+        std::string backtrace = Matcher::uncompressAlignment(alnComplexCigar);
+        unsigned int alni = 0;
+        for (size_t btPos = 0; btPos < backtrace.size(); btPos++) {
+            if (backtrace[btPos] == 'M') {
+                alni++;
+            }
+        }
+        return alni;
+    }
+
+    void updateChainTmScore(float qChainTm, float tChainTm) {
         qAlnChainTms.push_back(qChainTm);
         tAlnChainTms.push_back(tChainTm);
     }
 
     void fillChainAlignment(unsigned int qChainKey, unsigned int tChainKey, unsigned int alnLen, 
                             float *qdata, float *tdata, const std::string &cigar, int qStartPos, int tStartPos, int qLen, int tLen) {
-        AlignedCoordinate qChain;
-        AlignedCoordinate tChain;
-        int qi = qStartPos;
-        int ti = tStartPos;
-        int mi = 0;
-        std::string backtrace = Matcher::uncompressAlignment(cigar);
+        // AlignedCoordinate qChain;
+        // AlignedCoordinate tChain;
+        // int qi = qStartPos;
+        // int ti = tStartPos;
+        // int mi = 0;
+        // std::string backtrace = Matcher::uncompressAlignment(cigar);
 
-        qChain.x.resize(alnLen);
-        qChain.y.resize(alnLen);
-        qChain.z.resize(alnLen);
-        tChain.x.resize(alnLen);
-        tChain.y.resize(alnLen);
-        tChain.z.resize(alnLen);        
+        // qChain.x.resize(alnLen);
+        // qChain.y.resize(alnLen);
+        // qChain.z.resize(alnLen);
+        // tChain.x.resize(alnLen);
+        // tChain.y.resize(alnLen);
+        // tChain.z.resize(alnLen);        
 
-        for (size_t btPos = 0; btPos < backtrace.size(); btPos++) {
-            if (backtrace[btPos] == 'M') {
-                qChain.x[mi] = qdata[qi];
-                qChain.y[mi] = qdata[qLen + qi];
-                qChain.z[mi] = qdata[2*qLen + qi];
-                tChain.x[mi] = tdata[ti];
-                tChain.y[mi] = tdata[tLen + ti];
-                tChain.z[mi] = tdata[2*tLen + ti];
-                qi++;
-                ti++;
-                mi++;
-            }
-            else if (backtrace[btPos] == 'I') {
-                qi++;
-            }
-            else {
-                ti++;
-            }
-        }
+        // for (size_t btPos = 0; btPos < backtrace.size(); btPos++) {
+        //     if (backtrace[btPos] == 'M') {
+        //         qChain.x[mi] = qdata[qi];
+        //         qChain.y[mi] = qdata[qLen + qi];
+        //         qChain.z[mi] = qdata[2*qLen + qi];
+        //         tChain.x[mi] = tdata[ti];
+        //         tChain.y[mi] = tdata[tLen + ti];
+        //         tChain.z[mi] = tdata[2*tLen + ti];
+        //         qi++;
+        //         ti++;
+        //         mi++;
+        //     }
+        //     else if (backtrace[btPos] == 'I') {
+        //         qi++;
+        //     }
+        //     else {
+        //         ti++;
+        //     }
+        // }
 
-        qAlnChainKeys.push_back(qChainKey);
-        tAlnChainKeys.push_back(tChainKey);
+        // qAlnChainKeys.push_back(qChainKey);
+        // tAlnChainKeys.push_back(tChainKey);
 
-        qAlnChains.push_back(qChain);
-        tAlnChains.push_back(tChain);
+        // qAlnChains.push_back(qChain);
+        // tAlnChains.push_back(tChain);
     }
+    void fillComplexAlignment(unsigned int cmplAlnLen, const std::string &cigar, 
+        int qStartPos, int tStartPos, int qLen, int tLen,
+        float *qdata, float *tdata) {
+        // AlignedCoordinate qChain;
+        // AlignedCoordinate tChain;
+        // int qi = qStartPos;
+        // int ti = tStartPos;
+        // int mi = 0;
+        // std::string backtrace = Matcher::uncompressAlignment(cigar);
+                
+        // qChain.x.resize(cmplAlnLen);
+        // qChain.y.resize(cmplAlnLen);
+        // qChain.z.resize(cmplAlnLen);
+        // tChain.x.resize(cmplAlnLen);
+        // tChain.y.resize(cmplAlnLen);
+        // tChain.z.resize(cmplAlnLen);        
+                
+        // for (size_t btPos = 0; btPos < backtrace.size(); btPos++) {
+        // if (backtrace[btPos] == 'M') {
+        // qChain.x[mi] = qdata[qi];
+        // qChain.y[mi] = qdata[qLen + qi];
+        // qChain.z[mi] = qdata[2*qLen + qi];
+        // tChain.x[mi] = tdata[ti];
+        // tChain.y[mi] = tdata[tLen + ti];
+        // tChain.z[mi] = tdata[2*tLen + ti];
+        // qi++;
+        // ti++;
+        // mi++;
+        // }
+        // else if (backtrace[btPos] == 'I') {
+        // qi++;
+        // }
+        // else {
+        // ti++;
+        // }
+        // }
 
+    // qAlnChains.push_back(qChain);
+    // tAlnChains.push_back(tChain);
+    }
     void calcCov(unsigned int qLen, unsigned int tLen) {
         qCov = static_cast<float>(qTotalAlnLen) / static_cast<float>(qLen);
         tCov = static_cast<float>(tTotalAlnLen) / static_cast<float>(tLen);
     }
 
     void computeInterfaceLddt(float threshold = 8) {
-        if (qAlnChains.size() == 1) {
+        // TODO: current qAlnChain is based on vector implementation
+        if (qAlnChainKeys.size() == 1) { // No interface if only one chain aligned
             interfaceLddt = 1;
         }
-        float t2 = threshold * threshold;
-        std::vector<std::set<unsigned int>> qInterfacePos(qAlnChains.size()); // chainIdx, resIdx
-        unsigned int intLen = 0;
-        // Find and save interface Coordinates
-        for (size_t chainIdx1 = 0; chainIdx1 < qAlnChains.size(); chainIdx1++) {
-            for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < qAlnChains.size(); chainIdx2++) {
-                AlignedCoordinate qChain1 = qAlnChains[chainIdx1];
-                AlignedCoordinate qChain2 = qAlnChains[chainIdx2];
-                for (size_t resIdx1 = 0; resIdx1 < qChain1.x.size(); resIdx1++) {
-                    for (size_t resIdx2 = 0; resIdx2 < qChain2.x.size(); resIdx2++) {
-                        float dist = BasicFunction::dist(qChain1.x[resIdx1], qChain1.y[resIdx1], qChain1.z[resIdx1],
-                                                         qChain2.x[resIdx2], qChain2.y[resIdx2], qChain2.z[resIdx2]);
-                        if (dist < t2) {
-                            if (qInterfacePos[chainIdx1].find(resIdx1) == qInterfacePos[chainIdx1].end()) {
-                                qInterfacePos[chainIdx1].insert(resIdx1);
-                                intLen++;
-                            }
-                            if (qInterfacePos[chainIdx2].find(resIdx2) == qInterfacePos[chainIdx2].end()) {
-                                qInterfacePos[chainIdx2].insert(resIdx2);
-                                intLen++;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    //     float t2 = threshold * threshold;
+    //     std::vector<std::set<unsigned int>> qInterfacePos(qAlnChains.size()); // chainIdx, resIdx
+    //     unsigned int intLen = 0;
+    //     // Find and save interface Coordinates
+    //     for (size_t chainIdx1 = 0; chainIdx1 < qAlnChains.size(); chainIdx1++) {
+    //         for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < qAlnChains.size(); chainIdx2++) {
+    //             AlignedCoordinate qChain1 = qAlnChains[chainIdx1];
+    //             AlignedCoordinate qChain2 = qAlnChains[chainIdx2];
+    //             for (size_t resIdx1 = 0; resIdx1 < qChain1.x.size(); resIdx1++) {
+    //                 for (size_t resIdx2 = 0; resIdx2 < qChain2.x.size(); resIdx2++) {
+    //                     float dist = BasicFunction::dist(qChain1.x[resIdx1], qChain1.y[resIdx1], qChain1.z[resIdx1],
+    //                                                      qChain2.x[resIdx2], qChain2.y[resIdx2], qChain2.z[resIdx2]);
+    //                     if (dist < t2) {
+    //                         if (qInterfacePos[chainIdx1].find(resIdx1) == qInterfacePos[chainIdx1].end()) {
+    //                             qInterfacePos[chainIdx1].insert(resIdx1);
+    //                             intLen++;
+    //                         }
+    //                         if (qInterfacePos[chainIdx2].find(resIdx2) == qInterfacePos[chainIdx2].end()) {
+    //                             qInterfacePos[chainIdx2].insert(resIdx2);
+    //                             intLen++;
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        if (intLen == 0) {
-            return;
-        }
+    //     if (intLen == 0) {
+    //         return;
+    //     }
 
-        AlignedCoordinate qInterface(intLen);
-        AlignedCoordinate tInterface(intLen);
-        size_t idx = 0;
-        for (size_t chainIdx = 0; chainIdx < qInterfacePos.size(); chainIdx++) {
-            if (qInterfacePos[chainIdx].size() >= 4) {
-                for (size_t resIdx: qInterfacePos[chainIdx]) {
-                    qInterface.x[idx] = qAlnChains[chainIdx].x[resIdx];
-                    qInterface.y[idx] = qAlnChains[chainIdx].y[resIdx];
-                    qInterface.z[idx] = qAlnChains[chainIdx].z[resIdx];
-                    tInterface.x[idx] = tAlnChains[chainIdx].x[resIdx];
-                    tInterface.y[idx] = tAlnChains[chainIdx].y[resIdx];
-                    tInterface.z[idx] = tAlnChains[chainIdx].z[resIdx];
-                    idx++;
-                }
-            }
-        }
-        std::string bt(intLen, 'M');
-        LDDTCalculator *lddtcalculator = NULL;
-        lddtcalculator = new LDDTCalculator(intLen+1, intLen+1);
-        lddtcalculator->initQuery(intLen, &qInterface.x[0], &qInterface.y[0], &qInterface.z[0]);
-        LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(intLen, 0, 0, bt, &tInterface.x[0], &tInterface.y[0], &tInterface.z[0]);
-        interfaceLddt = lddtres.avgLddtScore;
-        delete lddtcalculator;
+    //     AlignedCoordinate qInterface(intLen);
+    //     AlignedCoordinate tInterface(intLen);
+    //     size_t idx = 0;
+    //     for (size_t chainIdx = 0; chainIdx < qInterfacePos.size(); chainIdx++) {
+    //         if (qInterfacePos[chainIdx].size() >= 4) {
+    //             for (size_t resIdx: qInterfacePos[chainIdx]) {
+    //                 qInterface.x[idx] = qAlnChains[chainIdx].x[resIdx];
+    //                 qInterface.y[idx] = qAlnChains[chainIdx].y[resIdx];
+    //                 qInterface.z[idx] = qAlnChains[chainIdx].z[resIdx];
+    //                 tInterface.x[idx] = tAlnChains[chainIdx].x[resIdx];
+    //                 tInterface.y[idx] = tAlnChains[chainIdx].y[resIdx];
+    //                 tInterface.z[idx] = tAlnChains[chainIdx].z[resIdx];
+    //                 idx++;
+    //             }
+    //         }
+    //     }
+    //     std::string bt(intLen, 'M');
+    //     LDDTCalculator *lddtcalculator = NULL;
+    //     lddtcalculator = new LDDTCalculator(intLen+1, intLen+1);
+    //     lddtcalculator->initQuery(intLen, &qInterface.x[0], &qInterface.y[0], &qInterface.z[0]);
+    //     LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(intLen, 0, 0, bt, &tInterface.x[0], &tInterface.y[0], &tInterface.z[0]);
+    //     interfaceLddt = lddtres.avgLddtScore;
+    //     delete lddtcalculator;
     }
 };
 
@@ -327,16 +386,16 @@ char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.tTm, tmpBuff);
     *(tmpBuff-1) = '\t';
 
-    for (unsigned int i = 0; i < cmplfiltcrit.qAlnChainKeys.size(); i++) {
-        tmpBuff = fastfloatToBuffer(cmplfiltcrit.qAlnChainTms[i], tmpBuff);
-        *(tmpBuff-1) = ',';
-    }
-    *(tmpBuff-1) = '\t';
-    for (unsigned int i = 0; i < cmplfiltcrit.tAlnChainKeys.size(); i++) {
-        tmpBuff = fastfloatToBuffer(cmplfiltcrit.tAlnChainTms[i], tmpBuff);
-        *(tmpBuff-1) = ',';
-    }
-    *(tmpBuff-1) = '\t';
+    // for (unsigned int i = 0; i < cmplfiltcrit.qAlnChainKeys.size(); i++) {
+    //     tmpBuff = fastfloatToBuffer(cmplfiltcrit.qAlnChainTms[i], tmpBuff);
+    //     *(tmpBuff-1) = ',';
+    // }
+    // *(tmpBuff-1) = '\t';
+    // for (unsigned int i = 0; i < cmplfiltcrit.tAlnChainKeys.size(); i++) {
+    //     tmpBuff = fastfloatToBuffer(cmplfiltcrit.tAlnChainTms[i], tmpBuff);
+    //     *(tmpBuff-1) = ',';
+    // }
+    // *(tmpBuff-1) = '\t';
 
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.interfaceLddt, tmpBuff);    
     *(tmpBuff-1) = '\t';
@@ -406,31 +465,32 @@ void fillTArr(const std::string &tString, float (&t)[3]) {
     }
 }
 
-unsigned int cigarToAlignedLength(const std::string &cigar) {
-    std::string backtrace = Matcher::uncompressAlignment(cigar);
-    unsigned int alni = 0;
-    for (size_t btPos = 0; btPos < backtrace.size(); btPos++) {
-        if (backtrace[btPos] == 'M') {
-            alni++;
-        }
-    }
-    return alni;
-}
+// unsigned int cigarToAlignedLength(const std::string &cigar) {
+//     std::string backtrace = Matcher::uncompressAlignment(cigar);
+//     unsigned int alni = 0;
+//     for (size_t btPos = 0; btPos < backtrace.size(); btPos++) {
+//         if (backtrace[btPos] == 'M') {
+//             alni++;
+//         }
+//     }
+//     return alni;
+// }
 
-double computeChainTmScore(AlignedCoordinate &qchain, AlignedCoordinate &tchain, float t[3], float u[3][3], int tLen) {
-    unsigned int alnLen = qchain.x.size();
-    double tmscore = 0;
-    float d0 = 1.24*(cbrt(tLen-15)) -1.8;
-    float d02 = d0*d0;
+// float computeChainTmScore(AlignedCoordinate &qchain, AlignedCoordinate &tchain, float t[3], float u[3][3], int tLen) {
+float computeChainTmScore(AlignedCoordinates &qchain, AlignedCoordinates &tchain, float t[3], float u[3][3], int tLen) {
+    // unsigned int alnLen = qchain.x.size();
+    // float tmscore = 0;
+    // float d0 = 1.24*(cbrt(tLen-15)) -1.8;
+    // float d02 = d0*d0;
 
-    Coordinates tmt(alnLen);
-    for (unsigned int k=0; k<alnLen; k++) {
-        float tmx, tmy, tmz;
-        BasicFunction::transform(t, u, tchain.x[k], tchain.y[k], tchain.z[k], tmx, tmy, tmz);
-        double di = BasicFunction::dist(qchain.x[k], qchain.y[k], qchain.z[k], tmx, tmy, tmz);
-        tmscore += 1/(1+di/d02);
-    }
-    return tmscore;
+    // Coordinates tmt(alnLen);
+    // for (unsigned int k=0; k<alnLen; k++) {
+    //     float tmx, tmy, tmz;
+    //     BasicFunction::transform(t, u, tchain.x[k], tchain.y[k], tchain.z[k], tmx, tmy, tmz);
+    //     double di = BasicFunction::dist(qchain.x[k], qchain.y[k], qchain.z[k], tmx, tmy, tmz);
+    //     tmscore += 1/(1+di/d02);
+    // }
+    // return tmscore;
 }
 
 void getComplexResidueLength( IndexReader *Dbr, std::vector<Complex> &complexes) {
@@ -592,7 +652,8 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             Complex qComplex = qComplexes[qComplexIdx];
             unsigned int qComplexId = qComplex.complexId;
             std::vector<unsigned int> qChainKeys = qComplex.chainKeys;
-            for (size_t qChainIdx = 0; qChainIdx < qChainKeys.size(); qChainIdx++ ) {
+            for (size_t qChainIdx = 0; qChainIdx < qChainKeys.size(); qChainIdx++)
+            {
                 unsigned int qChainKey = qChainKeys[qChainIdx];
                 unsigned int qChainAlnId = alnDbr.getId(qChainKey);
                 // unsigned int qChainDbId = qDbr->sequenceReader->getId(qChainKey);
@@ -640,9 +701,12 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     ComplexFilterCriteria &cmplfiltcrit = localComplexMap.at(assId);
                     cmplfiltcrit.updateAln(qalnlen, talnlen);
     
+                    // DOING: move to below
+                    cmplfiltcrit.qAlnChainKeys.push_back(qChainKey);
+                    cmplfiltcrit.tAlnChainKeys.push_back(tChainKey);
+                    cmplfiltcrit.alnComplexCigar.append(res.backtrace);
                     // save Aligned coordinatese if needed : chainTmThr & lddtThr
                     // if (par.filtChainTmThr > 0.0f || par.filtInterfaceLddtThr > 0.0f) { //RECOVER this
-                    // DOING: move to below
                     // char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
                     // size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
                     // float* tdata = tcoords.read(tcadata, res.dbLen, tCaLength);
@@ -651,12 +715,12 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     // cmplfiltcrit.fillChainAlignment(qChainKey, tChainKey, 
                     //     alnLen, qdata, tdata, res.backtrace, res.qStartPos, res.dbStartPos, res.qLen, res.dbLen);
 
-                    // double chainTm = computeChainTmScore(cmplfiltcrit.qAlnChains.back(), cmplfiltcrit.tAlnChains.back(), t, u, res.dbLen);
+                    // float chainTm = computeChainTmScore(cmplfiltcrit.qAlnChains.back(), cmplfiltcrit.tAlnChains.back(), t, u, res.dbLen);
                     // cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);    
                     // }
                 } // while end
             }
-            
+
             // Filter the target complexes and get the best alignment
             for (auto& assId_res : localComplexMap) {
                 unsigned int tComplexId  = assId_res.second.targetComplexId;
@@ -666,6 +730,31 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
 
                 ComplexFilterCriteria &cmplfiltcrit = assId_res.second;
                 cmplfiltcrit.calcCov(qComplex.complexLength, tComplex.complexLength);
+
+                if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
+                    /* Fill aligned coords */
+                    unsigned int totalAlnLen = cmplfiltcrit.cigarToAlignedLength();
+                    
+                    Coordinate16 qcoords, tcoords;
+                    for (size_t chainIdx = 0; chainIdx < cmplfiltcrit.qAlnChainKeys.size(); chainIdx++) {
+                    //     unsigned int qChainKey = cmplfiltcrit.qAlnChainKeys[chainIdx];
+                    //     unsigned int tChainKey = cmplfiltcrit.tAlnChainKeys[chainIdx];
+                    //     unsigned int qChainDbId = qDbr->sequenceReader->getId(qChainKey);
+                    //     unsigned int tChainDbId = tDbr->sequenceReader->getId(tChainKey);
+                    //     char *qcadata = qStructDbr.getData(qChainDbId, thread_idx);
+                    //     size_t qCaLength = qStructDbr.getEntryLen(qChainDbId);
+                    //     float* qdata = qcoords.read(qcadata, qComplex.chainLengths[chainIdx], qCaLength);
+                    //     char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
+                    //     size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
+                    //     float* tdata = tcoords.read(tcadata, tComplex.chainLengths[chainIdx], tCaLength);
+                    //     unsigned int alnLen = cigarToAlignedLength(res.backtrace);
+                    //     cmplfiltcrit.fillChainAlignment(qChainKey, tChainKey, 
+                    //         alnLen, qdata, tdata, res.backtrace, res.qStartPos, res.dbStartPos, res.qLen, res.dbLen);
+                    //     // float chainTm = computeChainTmScore(cmplfiltcrit.qAlnChains.back(), cmplfiltcrit.tAlnChains.back(), t, u, res.dbLen);
+                    //     // cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);
+
+                    }
+                }
 
                 // if (par.filtInterfaceLddtThr > 0.0) { //RECOVER this
                 // cmplfiltcrit.computeInterfaceLddt();
@@ -679,8 +768,8 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 // Get the best alignement per each target complex   
                 if (cmplIdToBestAssId.find(tComplexId) == cmplIdToBestAssId.end()) {
                     cmplIdToBestAssId[tComplexId] = {assId_res.first, alnlen};
-                    // cmplIdToBestAssId[tComplexId] = {static_cast<double>(assId_res.first), cmplfiltcrit.avgTm};
-                    // cmplIdToBestAssId[tComplexId] = {static_cast<double>(assId), cmplfiltcrit.avgTm};
+                    // cmplIdToBestAssId[tComplexId] = {static_cast<float>(assId_res.first), cmplfiltcrit.avgTm};
+                    // cmplIdToBestAssId[tComplexId] = {static_cast<float>(assId), cmplfiltcrit.avgTm};
                 } else {
                     if (alnlen > cmplIdToBestAssId.at(tComplexId)[1]) {
                         cmplIdToBestAssId[tComplexId] = {assId_res.first, alnlen};
@@ -728,18 +817,19 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 std::string tChainNames = "";
 
                 // Add chain names if chain alignment is saved
-                if (cmplfiltcrit.qAlnChainKeys.size() > 0) { // If chain alignment is saved : chainTmThr & lddtThr
-                    qChainNames = qChainKeyToChainNameMap.at(cmplfiltcrit.qAlnChainKeys[0]);
-                    tChainNames = tChainKeyToChainNameMap.at(cmplfiltcrit.tAlnChainKeys[0]);
-                    for (size_t chainIdx = 1; chainIdx < cmplfiltcrit.qAlnChainKeys.size(); chainIdx++) {
-                        unsigned int qChainKey = cmplfiltcrit.qAlnChainKeys[chainIdx];
-                        unsigned int tChainKey = cmplfiltcrit.tAlnChainKeys[chainIdx];
-                        std::string qChainName = qChainKeyToChainNameMap.at(qChainKey);
-                        std::string tChainName = tChainKeyToChainNameMap.at(tChainKey);
-                        qChainNames+= ","+qChainName;
-                        tChainNames+= ","+tChainName;
-                    }
-                }
+                // TODO: recover
+                // if (cmplfiltcrit.qAlnChainKeys.size() > 0) { // If chain alignment is saved : chainTmThr & lddtThr
+                //     qChainNames = qChainKeyToChainNameMap.at(cmplfiltcrit.qAlnChainKeys[0]);
+                //     tChainNames = tChainKeyToChainNameMap.at(cmplfiltcrit.tAlnChainKeys[0]);
+                //     for (size_t chainIdx = 1; chainIdx < cmplfiltcrit.qAlnChainKeys.size(); chainIdx++) {
+                //         unsigned int qChainKey = cmplfiltcrit.qAlnChainKeys[chainIdx];
+                //         unsigned int tChainKey = cmplfiltcrit.tAlnChainKeys[chainIdx];
+                //         std::string qChainName = qChainKeyToChainNameMap.at(qChainKey);
+                //         std::string tChainName = tChainKeyToChainNameMap.at(tChainKey);
+                //         qChainNames+= ","+qChainName;
+                //         tChainNames+= ","+tChainName;
+                //     }
+                // }
                 
                 char *outpos = Itoa::u32toa_sse2(tComplexId, buffer);
                 result.append(buffer, (outpos - buffer - 1));
