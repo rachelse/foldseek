@@ -32,9 +32,7 @@ struct Complex {
     std::string complexName;
     // std::vector<unsigned int> chainLengths;
     std::vector<unsigned int> chainKeys;
-
-    // Coordinate16 Coords;
-
+    
     Complex() : complexId(0), nChain(0), complexLength(0), complexName("") {}
     ~Complex() {
         chainKeys.clear();
@@ -88,13 +86,11 @@ public:
     float avgTm;
     float t[3];
     float u[3][3];
-    // std::string alnComplexCigar;
 
     // per chain : criteria for chainTmThr & lddtThr
     std::vector<unsigned int> qAlnChainKeys;
     std::vector<unsigned int> tAlnChainKeys;
-    // std::vector<pair<unsigned int, unsigned int>> qAlnPos;
-    // std::vector<pair<unsigned int, unsigned int>> tAlnPos;
+    std::vector<pair<unsigned int, unsigned int>> alnChainLens;
     std::vector<pair<unsigned int, unsigned int>> alnChainPos;
     std::vector<string> alnChainCigars;
 
@@ -118,6 +114,7 @@ public:
 
     ~ComplexFilterCriteria() {
         alnChainCigars.clear();
+        alnChainPos.clear();
         qAlnChainTms.clear();
         tAlnChainTms.clear();
         qAlnChainKeys.clear();
@@ -231,6 +228,72 @@ public:
     //     return alni;
     // }
 
+    void computeChainTmScore(AlignedCoordinate &qchain, AlignedCoordinate &tchain, unsigned int totalAlnLen) {
+        AlignedCoordinate tmt(totalAlnLen);
+        BasicFunction::do_rotation(tchain, tmt, totalAlnLen, t, u);
+
+        unsigned int chainOffset = 0;
+        for (unsigned int i=0; i<qAlnChainKeys.size(); i++) {
+            unsigned int qLen = alnChainLens[i].first;
+            unsigned int tLen = alnChainLens[i].second;
+            unsigned int alnLen = cigarToAlignedLength(alnChainCigars[i]);
+    
+            float d0 = 1.24*(cbrt(tLen-15)) -1.8;
+            float d02 = d0*d0;
+
+            float tmScore = 0;
+            for (unsigned int ci=chainOffset; ci<chainOffset+alnLen; ci++) {
+                float xa_x = qchain.x[ci];
+                float xa_y = qchain.y[ci];
+                float xa_z = qchain.z[ci];
+                float ya_x = tmt.x[ci];
+                float ya_y = tmt.y[ci];
+                float ya_z = tmt.z[ci];
+                float di = BasicFunction::dist(xa_x, xa_y, xa_z, ya_x, ya_y, ya_z);
+                float oneDividedDist = 1/(1+di/d02);
+                tmScore += oneDividedDist;
+            }
+
+            float qtmscore = tmScore / qLen;
+            float ttmscore = tmScore / tLen;
+            updateChainTmScore(qtmscore, ttmscore);
+            chainOffset += alnLen;
+            
+            
+            // TODO: Implement in SIMD
+            // simd_float vd02 = simdf32_set(d02);
+            // simd_float one = simdf32_set(1.0);
+            // simd_float acc = simdf32_set(0.0);
+            // std::cout << "AlnKey: " << i << " AlnLen: " << alnLen << std::endl;
+            // for (unsigned int ci=chainOffset; ci<chainOffset+alnLen-VECSIZE_FLOAT; ci+=VECSIZE_FLOAT) {
+            //     std::cout << ci << std::endl;
+            //     simd_float xa_x = simdf32_load(&qchain.x[ci]);
+            //     // simd_float xa_y = simdf32_load(&qchain.y[ci]);
+            //     // simd_float xa_z = simdf32_load(&qchain.z[ci]);
+            //     // simd_float ya_x = simdf32_load(&tmt.x[ci]);
+            //     // simd_float ya_y = simdf32_load(&tmt.y[ci]);
+            //     // simd_float ya_z = simdf32_load(&tmt.z[ci]);
+            //     // ya_x = simdf32_sub(xa_x, ya_x);
+            //     // ya_y = simdf32_sub(xa_y, ya_y);
+            //     // ya_z = simdf32_sub(xa_z, ya_z);
+            //     // simd_float di = simdf32_add(simdf32_add(simdf32_mul(xa_x, xa_x), simdf32_mul(xa_y, xa_y)), simdf32_mul(xa_z, xa_z));
+            //     // simd_float oneDividedDist = simdf32_div(one, simdf32_add(one, simdf32_div(di,vd02)));
+            //     // acc = simdf32_add(acc, oneDividedDist);
+            // }
+
+            // // float sumArray[VECSIZE_FLOAT];
+            // // float tmscore = 0;
+            // // simdf32_store(sumArray, acc);
+            // // for (size_t j = 0; j < VECSIZE_FLOAT; i++) {
+            // //     tmscore += sumArray[i];
+            // // }
+            // // float qtmscore = tmscore / qLen;
+            // // float ttmscore = tmscore / tLen;
+            // // updateChainTmScore(qtmscore, ttmscore);
+            // chainOffset += alnLen;
+        }
+    }
+
     void updateChainTmScore(float qChainTm, float tChainTm) {
         qAlnChainTms.push_back(qChainTm);
         tAlnChainTms.push_back(tChainTm);
@@ -279,7 +342,7 @@ public:
         // tAlnChains.push_back(tChain);
     }
     void fillComplexAlignment(const std::string &cigar, int qStartPos, int tStartPos, int qLen, int tLen, 
-        unsigned int &chainOffset, float *qdata, float *tdata, Coordinates &qAlnCoords, Coordinates &tAlnCoords) {
+        unsigned int &chainOffset, float *qdata, float *tdata, AlignedCoordinate &qAlnCoords, AlignedCoordinate &tAlnCoords) {
         int qi = qStartPos;
         int ti = tStartPos;
         int mi = chainOffset;
@@ -480,25 +543,6 @@ void fillTArr(const std::string &tString, float (&t)[3]) {
 //     // }
 //     // return tmscore;
 // }
-
-float computeChainTmScore(AlignedCoordinate &qchain, AlignedCoordinate &tchain, float t[3], float u[3][3], 
-        int tLen, int alnLen, unsigned int chainOffset) {
-    float tmscore = 0;
-    float d0 = 1.24*(cbrt(tLen-15)) -1.8;
-    float d02 = d0*d0;
-    AlignedCoordinate tmt(alnLen);
-    BasicFunction::do_rotation(tchain, tmt, alnLen, t, u);
-    // TODO: SIMD distance calculation (TMalign.cpp - score_fun8)
-
-    // Coordinates tmt(alnLen);
-    // for (unsigned int k=0; k<alnLen; k++) {
-    //     float tmx, tmy, tmz;
-    //     BasicFunction::transform(t, u, tchain.x[k], tchain.y[k], tchain.z[k], tmx, tmy, tmz);
-    //     double di = BasicFunction::dist(qchain.x[k], qchain.y[k], qchain.z[k], tmx, tmy, tmz);
-    //     tmscore += 1/(1+di/d02);
-    // }
-    return tmscore;
-}
 
 void getComplexResidueLength( IndexReader *Dbr, std::vector<Complex> &complexes) {
     for (size_t complexIdx = 0; complexIdx < complexes.size(); complexIdx++) {
@@ -713,6 +757,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     cmplfiltcrit.tAlnChainKeys.push_back(tChainKey);
                     cmplfiltcrit.alnChainCigars.push_back(res.backtrace);
                     cmplfiltcrit.alnChainPos.push_back(std::make_pair(res.qStartPos, res.dbStartPos));
+                    cmplfiltcrit.alnChainLens.push_back(std::make_pair(res.qLen, res.dbLen));
 
                     // cmplfiltcrit.alnComplexCigar.append(res.backtrace);
                     // save Aligned coordinatese if needed : chainTmThr & lddtThr
@@ -773,13 +818,11 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         /* Save each chain into Alignedcoords */
                         cmplfiltcrit.fillComplexAlignment(cmplfiltcrit.alnChainCigars[chainIdx], cmplfiltcrit.alnChainPos[chainIdx].first, cmplfiltcrit.alnChainPos[chainIdx].second, 
                             qChainLen, tChainLen, chainOffset, qdata, tdata, qAlnCoords, tAlnCoords);
-                            // int alnlen = cigarToAlignedLength(cmplfiltcrit.alnChainCigars[chainIdx]);
-                            // float chainTm = computeChainTmScore(qAlnCoords, tAlnCoords, cmplfiltcrit.t, cmplfiltcrit.u, res.dbLen, alnlen, chainOffset);
-                        // chainOffset += alnlen;
-                    //     // cmplfiltcrit.updateChainTmScore(chainTm / res.qLen, chainTm / res.dbLen);
                     }
 
-                    /* TODO: Compute chainTMscores */
+                    if (par.filtChainTmThr > 0.0) {
+                        cmplfiltcrit.computeChainTmScore(qAlnCoords, tAlnCoords, totalAlnLen);
+                    }
 
                     /* TODO: Compute InterfaceLen */
                     /* TODO: Compute interfaceLddt */
@@ -846,19 +889,18 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 std::string tChainNames = "";
 
                 // Add chain names if chain alignment is saved
-                // TODO: recover
-                // if (cmplfiltcrit.qAlnChainKeys.size() > 0) { // If chain alignment is saved : chainTmThr & lddtThr
-                //     qChainNames = qChainKeyToChainNameMap.at(cmplfiltcrit.qAlnChainKeys[0]);
-                //     tChainNames = tChainKeyToChainNameMap.at(cmplfiltcrit.tAlnChainKeys[0]);
-                //     for (size_t chainIdx = 1; chainIdx < cmplfiltcrit.qAlnChainKeys.size(); chainIdx++) {
-                //         unsigned int qChainKey = cmplfiltcrit.qAlnChainKeys[chainIdx];
-                //         unsigned int tChainKey = cmplfiltcrit.tAlnChainKeys[chainIdx];
-                //         std::string qChainName = qChainKeyToChainNameMap.at(qChainKey);
-                //         std::string tChainName = tChainKeyToChainNameMap.at(tChainKey);
-                //         qChainNames+= ","+qChainName;
-                //         tChainNames+= ","+tChainName;
-                //     }
-                // }
+                if (cmplfiltcrit.qAlnChainKeys.size() > 0) { // If chain alignment is saved : chainTmThr & lddtThr
+                    qChainNames = qChainKeyToChainNameMap.at(cmplfiltcrit.qAlnChainKeys[0]);
+                    tChainNames = tChainKeyToChainNameMap.at(cmplfiltcrit.tAlnChainKeys[0]);
+                    for (size_t chainIdx = 1; chainIdx < cmplfiltcrit.qAlnChainKeys.size(); chainIdx++) {
+                        unsigned int qChainKey = cmplfiltcrit.qAlnChainKeys[chainIdx];
+                        unsigned int tChainKey = cmplfiltcrit.tAlnChainKeys[chainIdx];
+                        std::string qChainName = qChainKeyToChainNameMap.at(qChainKey);
+                        std::string tChainName = tChainKeyToChainNameMap.at(tChainKey);
+                        qChainNames+= ","+qChainName;
+                        tChainNames+= ","+tChainName;
+                    }
+                }
                 
                 char *outpos = Itoa::u32toa_sse2(tComplexId, buffer);
                 result.append(buffer, (outpos - buffer - 1));
