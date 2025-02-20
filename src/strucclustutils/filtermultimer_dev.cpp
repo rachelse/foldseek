@@ -77,7 +77,7 @@ public:
     // per complex
     unsigned int qTotalAlnLen;
     unsigned int tTotalAlnLen;
-    unsigned int interfaceAlnLen;
+    // unsigned int interfaceAlnLen;
     float qCov;
     float tCov;
     float interfaceLddt;
@@ -96,7 +96,7 @@ public:
     ComplexFilterCriteria(
         unsigned int targetComplexId, float qTm, float tTm, float tstring[3], float ustring[3][3]
     ) :
-        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), interfaceAlnLen(0),
+        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), // interfaceAlnLen(0),
         qCov(0), tCov(0), interfaceLddt(0), qTm(qTm), tTm(tTm), avgTm(0)
     {
         std::copy(tstring, tstring + 3, t);
@@ -198,8 +198,7 @@ public:
         const bool chainNumOK = hasChainNum(covMode, qChainNum, tChainNum);
         const bool lddtOK = iLddtThr ? hasInterfaceLDDT(iLddtThr, qChainNum, tChainNum) : true; 
         // calculateAvgTm(covMode);
-        // return (covOK && TmOK && chainTmOK && lddtOK && chainNumOK); // RECOVER
-        return (covOK && TmOK && chainTmOK && chainNumOK);
+        return (covOK && TmOK && chainTmOK && lddtOK && chainNumOK); 
     }
 
     void updateAln(unsigned int qAlnLen, unsigned int tAlnLen) {
@@ -331,33 +330,30 @@ public:
 
         std::set<unsigned int> interfacePos;    
         unsigned int intLen = 0;
+
         // Find and save interface Coordinates
-        for (size_t chainIdx1 = 0; chainIdx1 < chainOffsets.size(); chainIdx1++) {
-            unsigned int c1_start = chainOffsets[chainIdx1];
-            unsigned int c1_end = c1_start + alignedChains[chainIdx1].alnLen;
-            for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < chainOffsets.size(); chainIdx2++) {
-                unsigned int c2_start = chainOffsets[chainIdx2];
-                unsigned int c2_end = c2_start + alignedChains[chainIdx2].alnLen;
-                for (size_t resIdx1 = c1_start; resIdx1 < c1_end; resIdx1++) {
-                    for (size_t resIdx2 = c2_start; resIdx2 < c2_end; resIdx2++) {
-                        float dist = BasicFunction::dist(qAlnCoords.x[resIdx1], qAlnCoords.y[resIdx1], qAlnCoords.z[resIdx1],
-                                                         tAlnCoords.x[resIdx2], tAlnCoords.y[resIdx2], tAlnCoords.z[resIdx2]);
-                        if (dist < t2) {
-                            if (interfacePos.find(resIdx1) == interfacePos.end()) {
-                                interfacePos.insert(resIdx1);
-                                intLen++;
-                            }
-                            if (interfacePos.find(resIdx2) == interfacePos.end()) {
-                                interfacePos.insert(resIdx2);
-                                intLen++;
-                            }
+        for (size_t chainIdx = 0; chainIdx < chainOffsets.size(); chainIdx++) {
+            unsigned int c1_start = chainOffsets[chainIdx];
+            unsigned int c1_end = c1_start + alignedChains[chainIdx].alnLen;
+            for (size_t resIdx1 = c1_start; resIdx1 < c1_end; resIdx1++) {
+                for (size_t resIdx2 = c1_end; resIdx2 < acc; resIdx2++) { // Rest of the chainss
+                    float dist = BasicFunction::dist(qAlnCoords.x[resIdx1], qAlnCoords.y[resIdx1], qAlnCoords.z[resIdx1],
+                                                    qAlnCoords.x[resIdx2], qAlnCoords.y[resIdx2], qAlnCoords.z[resIdx2]);
+                    if (dist < t2) {
+                        if (interfacePos.find(resIdx1) == interfacePos.end()) {
+                            interfacePos.insert(resIdx1);
+                            intLen++;
+                        }
+                        if (interfacePos.find(resIdx2) == interfacePos.end()) {
+                            interfacePos.insert(resIdx2);
+                            intLen++;
                         }
                     }
                 }
             }
         }
 
-        interfaceAlnLen = intLen;
+        // interfaceAlnLen = intLen;
 
         if (intLen == 0) {
             return;
@@ -387,69 +383,6 @@ public:
         delete lddtcalculator;
     }
 
-    void _computeInterfaceLddt(float threshold = 8) {
-        // TODO: current qAlnChain is based on vector implementation
-        if (alignedChains.size() == 1) { // No interface if only one chain aligned
-            interfaceLddt = 1;
-        }
-    //     float t2 = threshold * threshold;
-    //     std::vector<std::set<unsigned int>> qInterfacePos(qAlnChains.size()); // chainIdx, resIdx
-    //     unsigned int intLen = 0;
-    //     // Find and save interface Coordinates
-    //     for (size_t chainIdx1 = 0; chainIdx1 < qAlnChains.size(); chainIdx1++) {
-    //         for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < qAlnChains.size(); chainIdx2++) {
-    //             AlignedCoordinate qChain1 = qAlnChains[chainIdx1];
-    //             AlignedCoordinate qChain2 = qAlnChains[chainIdx2];
-    //             for (size_t resIdx1 = 0; resIdx1 < qChain1.x.size(); resIdx1++) {
-    //                 for (size_t resIdx2 = 0; resIdx2 < qChain2.x.size(); resIdx2++) {
-    //                     float dist = BasicFunction::dist(qChain1.x[resIdx1], qChain1.y[resIdx1], qChain1.z[resIdx1],
-    //                                                      qChain2.x[resIdx2], qChain2.y[resIdx2], qChain2.z[resIdx2]);
-    //                     if (dist < t2) {
-    //                         if (qInterfacePos[chainIdx1].find(resIdx1) == qInterfacePos[chainIdx1].end()) {
-    //                             qInterfacePos[chainIdx1].insert(resIdx1);
-    //                             intLen++;
-    //                         }
-    //                         if (qInterfacePos[chainIdx2].find(resIdx2) == qInterfacePos[chainIdx2].end()) {
-    //                             qInterfacePos[chainIdx2].insert(resIdx2);
-    //                             intLen++;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     if (intLen == 0) {
-    //         return;
-    //     }
-
-    //     AlignedCoordinate qInterface(intLen);
-    //     AlignedCoordinate tInterface(intLen);
-    //     size_t idx = 0;
-    //     for (size_t chainIdx = 0; chainIdx < qInterfacePos.size(); chainIdx++) {
-    //         if (qInterfacePos[chainIdx].size() >= 4) {
-    //             for (size_t resIdx: qInterfacePos[chainIdx]) {
-    //                 qInterface.x[idx] = qAlnChains[chainIdx].x[resIdx];
-    //                 qInterface.y[idx] = qAlnChains[chainIdx].y[resIdx];
-    //                 qInterface.z[idx] = qAlnChains[chainIdx].z[resIdx];
-    //                 tInterface.x[idx] = tAlnChains[chainIdx].x[resIdx];
-    //                 tInterface.y[idx] = tAlnChains[chainIdx].y[resIdx];
-    //                 tInterface.z[idx] = tAlnChains[chainIdx].z[resIdx];
-    //                 idx++;
-    //             }
-    //         }
-    //     }
-    //     std::string bt(intLen, 'M');
-    //     LDDTCalculator *lddtcalculator = NULL;
-    //     lddtcalculator = new LDDTCalculator(intLen+1, intLen+1);
-    //     lddtcalculator->initQuery(intLen, &qInterface.x[0], &qInterface.y[0], &qInterface.z[0]);
-    //     LDDTCalculator::LDDTScoreResult lddtres = lddtcalculator->computeLDDTScore(intLen, 0, 0, bt, &tInterface.x[0], &tInterface.y[0], &tInterface.z[0]);
-    //     interfaceLddt = lddtres.avgLddtScore;
-    //     delete lddtcalculator;
-    }
-};
-
-
 char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
     *(tmpBuff-1) = '\t';
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.qCov, tmpBuff);
@@ -475,8 +408,8 @@ char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.interfaceLddt, tmpBuff);    
     *(tmpBuff-1) = '\t';
 
-    tmpBuff = Itoa::u32toa_sse2(cmplfiltcrit.interfaceAlnLen, tmpBuff);
-    *(tmpBuff-1) = '\t';
+    // tmpBuff = Itoa::u32toa_sse2(cmplfiltcrit.interfaceAlnLen, tmpBuff);
+    // *(tmpBuff-1) = '\t';
 
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.u[0][0], tmpBuff);
     *(tmpBuff-1) = ',';

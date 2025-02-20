@@ -265,8 +265,8 @@ public:
         // Find and save interface Coordinates
         for (size_t chainIdx1 = 0; chainIdx1 < qAlnChains.size(); chainIdx1++) {
             for (size_t chainIdx2 = chainIdx1+1; chainIdx2 < qAlnChains.size(); chainIdx2++) {
-                AlignedCoordinate qChain1 = qAlnChains[chainIdx1];
-                AlignedCoordinate qChain2 = qAlnChains[chainIdx2];
+                AlignedCoordinate &qChain1 = qAlnChains[chainIdx1];
+                AlignedCoordinate &qChain2 = qAlnChains[chainIdx2];
                 for (size_t resIdx1 = 0; resIdx1 < qChain1.x.size(); resIdx1++) {
                     for (size_t resIdx2 = 0; resIdx2 < qChain2.x.size(); resIdx2++) {
                         float dist = BasicFunction::dist(qChain1.x[resIdx1], qChain1.y[resIdx1], qChain1.z[resIdx1],
@@ -286,7 +286,7 @@ public:
             }
         }
         interfaceAlnLen = intLen;
-
+        
         if (intLen == 0) {
             return;
         }
@@ -343,7 +343,7 @@ char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.interfaceLddt, tmpBuff);    
     *(tmpBuff-1) = '\t';
 
-    tmpBuff = Itoa::u32toa_sse2(cmplfiltcrit.qTotalAlnLen, tmpBuff);
+    tmpBuff = Itoa::u32toa_sse2(cmplfiltcrit.interfaceAlnLen, tmpBuff);
     *(tmpBuff-1) = '\t';
 
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.u[0][0], tmpBuff);
@@ -720,6 +720,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             
             resultWrite5.writeStart(thread_idx);
             for (unsigned int assIdidx = 0; assIdidx < selectedAssIDs.size(); assIdidx++) {
+
                 unsigned int assId = selectedAssIDs.at(assIdidx);
                 ComplexFilterCriteria &cmplfiltcrit = localComplexMap.at(assId);
 
