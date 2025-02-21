@@ -13,6 +13,7 @@
 #ifdef OPENMP
 #include <omp.h>
 #endif
+#define INTERFACE_THRESHOLD 8
 
 unsigned int cigarToAlignedLength(const std::string &cigar) {
     std::string backtrace = Matcher::uncompressAlignment(cigar);
@@ -77,7 +78,7 @@ public:
     // per complex
     unsigned int qTotalAlnLen;
     unsigned int tTotalAlnLen;
-    // unsigned int interfaceAlnLen;
+    unsigned int interfaceAlnLen;
     float qCov;
     float tCov;
     float interfaceLddt;
@@ -96,7 +97,7 @@ public:
     ComplexFilterCriteria(
         unsigned int targetComplexId, float qTm, float tTm, float tstring[3], float ustring[3][3]
     ) :
-        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), // interfaceAlnLen(0),
+        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), interfaceAlnLen(0),
         qCov(0), tCov(0), interfaceLddt(0), qTm(qTm), tTm(tTm), avgTm(0)
     {
         std::copy(tstring, tstring + 3, t);
@@ -125,7 +126,7 @@ public:
     }
 
     bool hasChainTm(float chainTmThr, int covMode, unsigned int qChainNum, unsigned int tChainNum) {
-        if (qAlnChainTms.size()<std::min(qChainNum, tChainNum)) {
+        if (alignedChains.size()<std::min(qChainNum, tChainNum)) {
             return false;
         }
         switch (covMode) {
@@ -186,19 +187,33 @@ public:
     // }
 
     bool hasInterfaceLDDT(float iLddtThr, unsigned int qChainNum, unsigned int tChainNum) {
-        if (qAlnChainTms.size()<std::min(qChainNum, tChainNum)) {
+        if (alignedChains.size()<std::min(qChainNum, tChainNum)) {
             return false;
         }
         return(interfaceLddt >= iLddtThr);
     }
+
     bool satisfy(int covMode, float covThr, float TmThr, float chainTmThr, float iLddtThr, size_t qChainNum, size_t tChainNum ) {
         const bool covOK = covThr ? Util::hasCoverage(covThr, covMode, qCov, tCov) : true;
         const bool TmOK = TmThr ? hasTm(TmThr, covMode) : true;
-        const bool chainTmOK = chainTmThr ? hasChainTm(chainTmThr, covMode, qChainNum, tChainNum) : true; 
         const bool chainNumOK = hasChainNum(covMode, qChainNum, tChainNum);
+        const bool chainTmOK = chainTmThr ? hasChainTm(chainTmThr, covMode, qChainNum, tChainNum) : true; 
         const bool lddtOK = iLddtThr ? hasInterfaceLDDT(iLddtThr, qChainNum, tChainNum) : true; 
         // calculateAvgTm(covMode);
-        return (covOK && TmOK && chainTmOK && lddtOK && chainNumOK); 
+        return (covOK && TmOK && chainNumOK && chainTmOK && lddtOK); 
+    }
+
+    bool satisfy_first(int covMode, float covThr, float TmThr, size_t qChainNum, size_t tChainNum ) {
+        const bool covOK = covThr ? Util::hasCoverage(covThr, covMode, qCov, tCov) : true;
+        const bool TmOK = TmThr ? hasTm(TmThr, covMode) : true;
+        const bool chainNumOK = hasChainNum(covMode, qChainNum, tChainNum);
+        return (covOK && TmOK && chainNumOK ); 
+    }
+
+    bool satisfy_second(int covMode, float chainTmThr, float iLddtThr, size_t qChainNum, size_t tChainNum ) {
+        const bool chainTmOK = chainTmThr ? hasChainTm(chainTmThr, covMode, qChainNum, tChainNum) : true; 
+        const bool lddtOK = iLddtThr ? hasInterfaceLDDT(iLddtThr, qChainNum, tChainNum) : true; 
+        return (chainTmOK && lddtOK); 
     }
 
     void updateAln(unsigned int qAlnLen, unsigned int tAlnLen) {
@@ -314,7 +329,7 @@ public:
         tCov = static_cast<float>(tTotalAlnLen) / static_cast<float>(tLen);
     }
 
-    void computeInterfaceLddt(AlignedCoordinate &qAlnCoords, AlignedCoordinate &tAlnCoords, float threshold = 8) {
+    void computeInterfaceLddt(AlignedCoordinate &qAlnCoords, AlignedCoordinate &tAlnCoords, float threshold = INTERFACE_THRESHOLD) {
         if (alignedChains.size() == 1) { // No interface if only one chain aligned
             interfaceLddt = 1;
             return;
@@ -353,7 +368,7 @@ public:
             }
         }
 
-        // interfaceAlnLen = intLen;
+        interfaceAlnLen = intLen;
 
         if (intLen == 0) {
             return;
@@ -382,6 +397,7 @@ public:
         interfaceLddt = lddtres.avgLddtScore;
         delete lddtcalculator;
     }
+};
 
 char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
     *(tmpBuff-1) = '\t';
@@ -694,6 +710,11 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 ComplexFilterCriteria &cmplfiltcrit = assId_res.second;
                 cmplfiltcrit.calcCov(qComplex.complexLength, tComplex.complexLength);
 
+                // Check the criteria first before calculating the rest (chain-tm-score, interface-lddt)
+                if (!(cmplfiltcrit.satisfy_first(par.covMode, par.covThr, par.filtMultimerTmThr, qComplex.nChain, tComplex.nChain))) {
+                    continue;
+                }
+
                 if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
                     /* Fill aligned coords */
                     unsigned int totalAlnLen = 0;
@@ -706,6 +727,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     Coordinate16 qcoords, tcoords;
                     unsigned int chainOffset = 0;
                     
+                    std::set<chainToResidue> interface_chain2residue;
                     for (size_t chainIdx = 0; chainIdx < cmplfiltcrit.alignedChains.size(); chainIdx++) {
                         // Bring Coordinates from cadb
                         chainAlignment &alnchain = cmplfiltcrit.alignedChains[chainIdx];
@@ -725,23 +747,68 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
 
                         // Save each chain into Alignedcoords
                         cmplfiltcrit.fillComplexAlignment(alnchain, chainOffset, qdata, tdata, qAlnCoords, tAlnCoords);
+
+                        // Retrieve interface residues from Query complex
+                        if (par.filtInterfaceLddtThr) {
+                            // std::vector<chainToResidue> local_chain2residue;
+                            float d2 = INTERFACE_THRESHOLD * INTERFACE_THRESHOLD;
+                            for (size_t otherIdx = chainIdx+1; otherIdx < cmplfiltcrit.alignedChains.size(); otherIdx++) {
+                                chainAlignment &otherchain = cmplfiltcrit.alignedChains[otherIdx];
+                                unsigned int qChainKey2 = otherchain.qKey;
+                                unsigned int qChainDbId2 = qDbr->sequenceReader->getId(qChainKey2);
+                                char *qcadata2 = qStructDbr.getData(qChainDbId2, thread_idx);
+                                size_t qCaLength2 = qStructDbr.getEntryLen(qChainDbId2);
+                                size_t qChainLen2 = qDbr->sequenceReader->getSeqLen(qChainDbId2);
+                                float* qdata2 = qcoords.read(qcadata2, qChainLen2, qCaLength2);
+
+                                for (size_t chainResIdx=0; chainResIdx < qChainLen; chainResIdx++) {
+                                    bool isInterface = false;
+                                    for (size_t otherResIdx=0; otherResIdx < qChainLen2; otherResIdx++) {
+                                        float dist = BasicFunction::dist(qdata[chainResIdx], qdata[qChainLen + chainResIdx], qdata[2*qChainLen + chainResIdx],
+                                                                        qdata2[otherResIdx], qdata2[qChainLen2 + otherResIdx], qdata2[2*qChainLen2 + otherResIdx]);
+                                        if (dist < d2) {
+                                            isInterface = true;
+                                            // local_chain2residue.push_back({otherIdx, otherResIdx});
+                                            interface_chain2residue.insert({otherIdx, otherResIdx});
+                                        }
+                                    }
+                                    if (isInterface) {
+                                        // local_chain2residue.push_back({chainIdx, chainResIdx});
+                                        interface_chain2residue.insert({chainIdx, chainResIdx});
+                                    }
+                                }
+                            }
+                            // interface_chain2residue.insert(local_chain2residue.begin(), local_chain2residue.end());
+                        }
                     }
 
                     if (par.filtChainTmThr > 0.0) {
                         cmplfiltcrit.computeChainTmScore(qAlnCoords, tAlnCoords, totalAlnLen);
+                        if (!(cmplfiltcrit.hasChainTm(par.filtChainTmThr, par.covMode, qComplex.nChain, tComplex.nChain))) {
+                            continue;
+                        }
                     }
 
                     if (par.filtInterfaceLddtThr > 0.0) {
                         cmplfiltcrit.computeInterfaceLddt(qAlnCoords, tAlnCoords);
-                        /* TODO: Compute InterfaceLen */
+                        if (!(cmplfiltcrit.hasInterfaceLDDT(par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
+                            continue;
+                        }
+                        // if (cmplfiltcrit.alignedChains.size() > 1 && (cmplfiltcrit.interfaceAlnLen > interface_chain2residue.size())) {
+                        //     std::cout << "QComplex: " << qComplex.complexName << " N aligned: " << cmplfiltcrit.alignedChains.size() <<" Total AlnLen: " << totalAlnLen << " Interface Len: " << interface_chain2residue.size() << " Interface AlnLen: " << cmplfiltcrit.interfaceAlnLen << " Interface LDDT: " << cmplfiltcrit.interfaceLddt << std::endl;
+                        // }                        
                     }
 
+                    // if (!(cmplfiltcrit.satisfy_second(par.covMode, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
+                    //     continue;
+                    // }
                 }
 
-                // Check if the criteria are met
-                if (!(cmplfiltcrit.satisfy(par.covMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
-                    continue;
-                }
+                // Check if the rest criteria are met
+                // if (!(cmplfiltcrit.satisfy(par.covMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
+                //     continue;
+                // }
+
                 unsigned int alnlen = adjustAlnLen(cmplfiltcrit.qTotalAlnLen, cmplfiltcrit.tTotalAlnLen, par.covMode);
                 // Get the best alignement per each target complex   
                 if (cmplIdToBestAssId.find(tComplexId) == cmplIdToBestAssId.end()) {
