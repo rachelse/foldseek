@@ -31,7 +31,6 @@ unsigned int getInterfaceLength(std::vector<unsigned int> &qChainKeys, IndexRead
     Coordinate16 coords, coords2;
     std::set<chainToResidue> local_interface = std::set<chainToResidue>();
     for (size_t chainIdx = 0; chainIdx < qChainKeys.size(); chainIdx++) {
-        // chainAlignment &alnchain = cmplfiltcrit.alignedChains[chainIdx];
         unsigned int chainKey = qChainKeys[chainIdx];
         unsigned int chainDbId = qDbr->sequenceReader->getId(chainKey);
         char *cadata = qStructDbr.getData(chainDbId, thread_idx);
@@ -40,7 +39,6 @@ unsigned int getInterfaceLength(std::vector<unsigned int> &qChainKeys, IndexRead
         float* chainData = coords.read(cadata, chainLen, caLength);
         
         for (size_t chainIdx2 = chainIdx+1; chainIdx2 < qChainKeys.size(); chainIdx2++) {
-            // chainAlignment &chainaln2 = cmplfiltcrit.alignedChains[chainIdx2];
             unsigned int chainKey2 = qChainKeys[chainIdx2];
             unsigned int chainDbId2 = qDbr->sequenceReader->getId(chainKey2);
             char *cadata2 = qStructDbr.getData(chainDbId2, thread_idx);
@@ -118,7 +116,6 @@ public:
     // per complex
     unsigned int qTotalAlnLen;
     unsigned int tTotalAlnLen;
-    // unsigned int interfaceAlnLen;
     float qCov;
     float tCov;
     float interfaceLddt;
@@ -137,7 +134,7 @@ public:
     ComplexFilterCriteria(
         unsigned int targetComplexId, float qTm, float tTm, float tstring[3], float ustring[3][3]
     ) :
-        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), //interfaceAlnLen(0),
+        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0),
         qCov(0), tCov(0), interfaceLddt(0), qTm(qTm), tTm(tTm), avgTm(0)
     {
         std::copy(tstring, tstring + 3, t);
@@ -410,8 +407,6 @@ public:
             }
         }
 
-        // interfaceAlnLen = intAlnLen;
-
         if (intAlnLen == 0) {
             return;
         }
@@ -465,10 +460,6 @@ char* filterToBuffer(ComplexFilterCriteria cmplfiltcrit, char* tmpBuff){
 
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.interfaceLddt, tmpBuff);    
     *(tmpBuff-1) = '\t';
-
-    // tmpBuff = Itoa::u32toa_sse2(cmplfiltcrit.interfaceAlnLen, tmpBuff);
-    // *(tmpBuff-1) = '\t';
-
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.u[0][0], tmpBuff);
     *(tmpBuff-1) = ',';
     tmpBuff = fastfloatToBuffer(cmplfiltcrit.u[0][1], tmpBuff);
@@ -758,7 +749,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                 }
 
                 if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
-                    /* Fill aligned coords */
+                    // Fill aligned coords
                     unsigned int totalAlnLen = 0;
                     for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
                         totalAlnLen += cmplfiltcrit.alignedChains[i].alnLen;
