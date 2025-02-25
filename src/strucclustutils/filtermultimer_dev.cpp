@@ -137,7 +137,7 @@ public:
     ComplexFilterCriteria(
         unsigned int targetComplexId, float qTm, float tTm, float tstring[3], float ustring[3][3]
     ) :
-        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), // interfaceAlnLen(0),
+        targetComplexId(targetComplexId), qTotalAlnLen(0), tTotalAlnLen(0), //interfaceAlnLen(0),
         qCov(0), tCov(0), interfaceLddt(0), qTm(qTm), tTm(tTm), avgTm(0)
     {
         std::copy(tstring, tstring + 3, t);
@@ -692,6 +692,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             Complex qComplex = qComplexes[qComplexIdx];
             unsigned int qComplexId = qComplex.complexId;
             std::vector<unsigned int> qChainKeys = qComplex.chainKeys;
+            std::map<std::vector<unsigned int>, unsigned int> qalnchain2intlen;
             
             for (size_t qChainIdx = 0; qChainIdx < qChainKeys.size(); qChainIdx++)
             {
@@ -791,9 +792,9 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
 
                     if (par.filtChainTmThr > 0.0) {
                         cmplfiltcrit.computeChainTmScore(qAlnCoords, tAlnCoords, totalAlnLen);
-                        // if (!(cmplfiltcrit.hasChainTm(par.filtChainTmThr, par.covMode, qComplex.nChain, tComplex.nChain))) {
-                        //     continue;
-                        // }
+                        if (!(cmplfiltcrit.hasChainTm(par.filtChainTmThr, par.covMode, qComplex.nChain, tComplex.nChain))) {
+                            continue;
+                        }
                     }
 
                     if (par.filtInterfaceLddtThr > 0.0) {
@@ -801,17 +802,22 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
                             qAlnChainKeys[i] = cmplfiltcrit.alignedChains[i].qKey;
                         }
-                        unsigned int interfaceLength = getInterfaceLength(qAlnChainKeys, qDbr, qStructDbr, thread_idx);
+                        sort(qAlnChainKeys.begin(), qAlnChainKeys.end());
+                        if (qalnchain2intlen.find(qAlnChainKeys) == qalnchain2intlen.end()) {
+                            unsigned int interfaceLength = getInterfaceLength(qAlnChainKeys, qDbr, qStructDbr, thread_idx);
+                            qalnchain2intlen[qAlnChainKeys] = interfaceLength;
+                        }
+                        unsigned int interfaceLength = qalnchain2intlen.at(qAlnChainKeys);
 
                         cmplfiltcrit.computeInterfaceLddt(qAlnCoords, tAlnCoords, interfaceLength);
-                        // if (!(cmplfiltcrit.hasInterfaceLddt(par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
-                        //     continue;
-                        // }
+                        if (!(cmplfiltcrit.hasInterfaceLDDT(par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
+                            continue;
+                        }
                     }
 
-                    if (!(cmplfiltcrit.satisfy_second(par.covMode, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
-                        continue;
-                    }
+                    // if (!(cmplfiltcrit.satisfy_second(par.covMode, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
+                    //     continue;
+                    // }
                 }
 
                 // Check if the rest criteria are met
@@ -900,6 +906,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
             localComplexMap.clear();
             cmplIdToBestAssId.clear();
             selectedAssIDs.clear();
+            qalnchain2intlen.clear();
         } // for end
     } // MP end
     
