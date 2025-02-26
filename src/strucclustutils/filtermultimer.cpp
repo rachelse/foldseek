@@ -747,7 +747,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     continue;
                 }
 
-                // if (par.filtChainTmThr || par.filtInterfaceLddtThr) { // TODO: Recover
+                if (par.filtChainTmThr || par.filtInterfaceLddtThr) { // TODO: Recover
                     // Fill aligned coords
                     unsigned int totalAlnLen = 0;
                     for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
@@ -780,14 +780,11 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         cmplfiltcrit.fillComplexAlignment(alnchain, chainOffset, qdata, tdata, qAlnCoords, tAlnCoords);
                     }
 
-                    // if (par.filtChainTmThr > 0.0) { // TODO: Recover
+                    if (par.filtChainTmThr > 0.0) { // TODO: Recover
                         cmplfiltcrit.computeChainTmScore(qAlnCoords, tAlnCoords, totalAlnLen);
-                        if (!(cmplfiltcrit.hasChainTm(par.filtChainTmThr, par.covMode, qComplex.nChain, tComplex.nChain))) {
-                            continue;
-                        }
-                    // }
+                    }
 
-                    // if (par.filtInterfaceLddtThr > 0.0) { // TODO: Recover
+                    if (par.filtInterfaceLddtThr > 0.0) { // TODO: Recover
                         std::vector<unsigned int> qAlnChainKeys(cmplfiltcrit.alignedChains.size());
                         for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
                             qAlnChainKeys[i] = cmplfiltcrit.alignedChains[i].qKey;
@@ -800,15 +797,12 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         unsigned int interfaceLength = qalnchain2intlen.at(qAlnChainKeys);
 
                         cmplfiltcrit.computeInterfaceLddt(qAlnCoords, tAlnCoords, interfaceLength);
-                        if (!(cmplfiltcrit.hasInterfaceLDDT(par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
-                            continue;
-                        }
-                    // }
+                    }
 
-                    // if (!(cmplfiltcrit.satisfy_second(par.covMode, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
-                    //     continue;
-                    // }
-                // }
+                    if (!(cmplfiltcrit.satisfy_second(par.covMode, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
+                        continue;
+                    }
+                }
 
                 // Check if the rest criteria are met
                 // if (!(cmplfiltcrit.satisfy(par.covMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
