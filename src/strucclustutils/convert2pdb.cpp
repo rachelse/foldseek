@@ -104,7 +104,11 @@ int convert2pdb(int argc, const char **argv, const Command& command) {
     complexIdToChainKeys_t complexIdToChainKeysMap;
     std::vector<unsigned int> complexIndices;
     if (outputMode == LocalParameters::PDB_OUTPUT_MODE_COMPLEX) {
+<<<<<<< HEAD
         getKeyToIdMapIdToKeysMapIdVec(db, lookupFile, chainKeyToComplexIdMap, complexIdToChainKeysMap, complexIndices);
+=======
+        getKeyToIdMapIdToKeysMapIdVec_db(db, lookupFile, chainKeyToComplexIdMap, complexIdToChainKeysMap, complexIndices);
+>>>>>>> 9fb697096d40e708eaea9d5b3a8694a49bb59351
     }
 
     Debug(Debug::INFO) << "Start writing file to " << par.db2 << "\n";
