@@ -34,14 +34,6 @@ getLookup() {
     }' "${1}.index" "${1}.lookup" > "${2}.lookuptmp"
 }
 
-getSource() {
-    awk 'FNR==NR{idx[$2]=1;next} {
-        if ($1 in idx) {
-            print
-        }
-    }' "${2}.lookuptmp" "${1}.source" > "${2}.sourcetmp"
-}
-
 buildIndex() {
     sort -nk2 "${1}.index" > "${1}.indextmp"
     awk 'FNR==NR{chainMult[$1]=$2; next} {
@@ -68,7 +60,6 @@ fi
 # shift query DB, .index, .dbtype
 if notExists "${TMP_PATH}/multimer_db.dbtype"; then
     getLookup "${INPUT}" "${TMP_PATH}/multimer_db"
-    getSource "${INPUT}" "${TMP_PATH}/multimer_db"
     # shellcheck disable=SC2086
     "$MMSEQS" base:createsubdb "${TMP_PATH}/multimer_db.lookuptmp" "${INPUT}" "${TMP_PATH}/multimer_db"  --subdb-mode 0 ${VERBOSITY_PAR} \
         || fail "createsubdb died"
@@ -103,7 +94,6 @@ if [ -n "${REMOVE_TMP}" ]; then
     rm -f -- "${TMP_PATH}/multimer_header.tsv"
     rm -rf -- "${TMP_PATH}/multimersearch_tmp"
     rm -f -- "${TMP_PATH}/multimer_db.lookuptmp"
-    rm -f -- "${TMP_PATH}/multimer_db.sourcetmp"
     rm -f -- "${TMP_PATH}/multimer_db.indextmp2"
     rm -f -- "${TMP_PATH}/multimer_db.indextmp"
     rm -f -- "${TMP_PATH}/multimercluster.sh"
