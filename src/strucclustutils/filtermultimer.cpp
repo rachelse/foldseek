@@ -26,23 +26,23 @@ unsigned int cigarToAlignedLength(const std::string &cigar) {
     return alni;
 }
 
-unsigned int getInterfaceLength(std::vector<unsigned int> &qChainKeys, IndexReader *qDbr, DBReader<unsigned int> &qStructDbr, unsigned int thread_idx, float threshold = INTERFACE_THRESHOLD) {
+unsigned int getInterfaceLength(std::vector<unsigned int> &qChainKeys, IndexReader *qDbr, IndexReader *qStructDbr, unsigned int thread_idx, float threshold = INTERFACE_THRESHOLD) {
     float d2 = threshold * threshold;
     Coordinate16 coords, coords2;
     std::set<chainToResidue> local_interface = std::set<chainToResidue>();
     for (size_t chainIdx = 0; chainIdx < qChainKeys.size(); chainIdx++) {
         unsigned int chainKey = qChainKeys[chainIdx];
         unsigned int chainDbId = qDbr->sequenceReader->getId(chainKey);
-        char *cadata = qStructDbr.getData(chainDbId, thread_idx);
-        size_t caLength = qStructDbr.getEntryLen(chainDbId);
+        char *cadata = qStructDbr->sequenceReader->getData(chainDbId, thread_idx);
+        size_t caLength = qStructDbr->sequenceReader->getEntryLen(chainDbId);
         size_t chainLen = qDbr->sequenceReader->getSeqLen(chainDbId);
         float* chainData = coords.read(cadata, chainLen, caLength);
         
         for (size_t chainIdx2 = chainIdx+1; chainIdx2 < qChainKeys.size(); chainIdx2++) {
             unsigned int chainKey2 = qChainKeys[chainIdx2];
             unsigned int chainDbId2 = qDbr->sequenceReader->getId(chainKey2);
-            char *cadata2 = qStructDbr.getData(chainDbId2, thread_idx);
-            size_t caLength2 = qStructDbr.getEntryLen(chainDbId2);
+            char *cadata2 = qStructDbr->sequenceReader->getData(chainDbId2, thread_idx);
+            size_t caLength2 = qStructDbr->sequenceReader->getEntryLen(chainDbId2);
             size_t chainLen2 = qDbr->sequenceReader->getSeqLen(chainDbId2);
             float* chainData2 = coords2.read(cadata2, chainLen2, caLength2);
             for (size_t chainResIdx=0; chainResIdx < chainLen; chainResIdx++) {
@@ -583,7 +583,6 @@ static void getlookupInfo(
             chainKeyToChainNameMap.emplace(chainKey, chainName);
 
             if (complexId != prevComplexId) {
-                
                 Complex complex;
                 complex.complexId = complexId;
                 complex.complexName = complexName;
@@ -607,24 +606,38 @@ int filtermultimer(int argc, const char **argv, const Command &command) {
     const bool sameDB = par.db1.compare(par.db2) == 0 ? true : false;
     const bool touch = (par.preloadMode != Parameters::PRELOAD_MODE_MMAP);
     int dbaccessMode = (DBReader<unsigned int>::USE_INDEX);
-
+    
+    uint16_t extended = DBReader<unsigned int>::getExtendedDbtype(FileUtil::parseDbType(par.db3.c_str()));
+    bool isExtendedAlignment = extended & Parameters::DBTYPE_EXTENDED_INDEX_NEED_SRC;
     IndexReader* qDbr = NULL;
-    qDbr = new IndexReader(par.db1, par.threads,  IndexReader::SRC_SEQUENCES, (touch) ? (IndexReader::PRELOAD_INDEX | IndexReader::PRELOAD_DATA) : 0, dbaccessMode);
-    DBReader<unsigned int> qStructDbr((par.db1 + "_ca").c_str(), (par.db1 + "_ca.index").c_str(), 
-                                par.threads, DBReader<unsigned int>::USE_INDEX|DBReader<unsigned int>::USE_DATA);
-    qStructDbr.open(DBReader<unsigned int>::NOSORT);
+    IndexReader* qStructDbr = NULL;
+    qDbr = new IndexReader(par.db1, par.threads, 
+                            isExtendedAlignment ? IndexReader::SRC_SEQUENCES : IndexReader::SEQUENCES,
+                            (touch) ? (IndexReader::PRELOAD_INDEX | IndexReader::PRELOAD_DATA) : 0, dbaccessMode);
+    qStructDbr = new IndexReader(par.db1, par.threads, 
+                            isExtendedAlignment ? IndexReader::makeUserDatabaseType(LocalParameters::INDEX_DB_CA_KEY_DB2) :
+                                                IndexReader::makeUserDatabaseType(LocalParameters::INDEX_DB_CA_KEY_DB1),
+                            touch? IndexReader::PRELOAD_INDEX : 0,
+                            DBReader<unsigned int>::USE_INDEX | DBReader<unsigned int>::USE_DATA,
+                            isExtendedAlignment ? "_seq_ca" : "_ca");
 
     IndexReader* tDbr = NULL;
-    DBReader<unsigned int> *tStructDbr = NULL;
+    IndexReader* tStructDbr = NULL;
     if (sameDB) {
         tDbr = qDbr;
-        tStructDbr = &qStructDbr;
+        tStructDbr = qStructDbr;
     }
     else{
-        tDbr = new IndexReader(par.db2, par.threads,  IndexReader::SRC_SEQUENCES, (touch) ? (IndexReader::PRELOAD_INDEX | IndexReader::PRELOAD_DATA) : 0, dbaccessMode);
-        tStructDbr = new DBReader<unsigned int>((par.db2 + "_ca").c_str(), (par.db2 + "_ca.index").c_str(),
-                                           par.threads, DBReader<unsigned int>::USE_INDEX|DBReader<unsigned int>::USE_DATA);
-        tStructDbr->open(DBReader<unsigned int>::NOSORT);
+        tDbr = new IndexReader(par.db2, par.threads, 
+                            isExtendedAlignment ? IndexReader::SRC_SEQUENCES : IndexReader::SEQUENCES,
+                            (touch) ? (IndexReader::PRELOAD_INDEX | IndexReader::PRELOAD_DATA) : 0, dbaccessMode);
+
+        tStructDbr = new IndexReader(par.db2, par.threads,
+                            isExtendedAlignment ? IndexReader::makeUserDatabaseType(LocalParameters::INDEX_DB_CA_KEY_DB2) : 
+                                                IndexReader::makeUserDatabaseType(LocalParameters::INDEX_DB_CA_KEY_DB1),
+                            touch? IndexReader::PRELOAD_INDEX : 0,
+                            DBReader<unsigned int>::USE_INDEX | DBReader<unsigned int>::USE_DATA,
+                            isExtendedAlignment ? "_seq_ca" : "_ca");
     }
     DBReader<unsigned int> alnDbr(par.db3.c_str(), par.db3Index.c_str(), par.threads, DBReader<unsigned int>::USE_INDEX| DBReader<unsigned int>::USE_DATA);
     alnDbr.open(DBReader<unsigned int>::LINEAR_ACCCESS);
@@ -747,7 +760,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     continue;
                 }
 
-                if (par.filtChainTmThr || par.filtInterfaceLddtThr) { // TODO: Recover
+                if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
                     // Fill aligned coords
                     unsigned int totalAlnLen = 0;
                     for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
@@ -764,27 +777,27 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         chainAlignment &alnchain = cmplfiltcrit.alignedChains[chainIdx];
                         unsigned int qChainKey = alnchain.qKey;
                         unsigned int qChainDbId = qDbr->sequenceReader->getId(qChainKey);
-                        char *qcadata = qStructDbr.getData(qChainDbId, thread_idx);
-                        size_t qCaLength = qStructDbr.getEntryLen(qChainDbId);
+                        char *qcadata = qStructDbr->sequenceReader->getData(qChainDbId, thread_idx);
+                        size_t qCaLength = qStructDbr->sequenceReader->getEntryLen(qChainDbId);
                         size_t qChainLen = qDbr->sequenceReader->getSeqLen(qChainDbId);
                         float* qdata = qcoords.read(qcadata, qChainLen, qCaLength);
                         
                         unsigned int tChainKey = alnchain.tKey;
                         unsigned int tChainDbId = tDbr->sequenceReader->getId(tChainKey);
-                        size_t tCaLength = tStructDbr->getEntryLen(tChainDbId);
+                        size_t tCaLength = tStructDbr->sequenceReader->getEntryLen(tChainDbId);
                         size_t tChainLen = tDbr->sequenceReader->getSeqLen(tChainDbId);
-                        char *tcadata = tStructDbr->getData(tChainDbId, thread_idx);
+                        char *tcadata = tStructDbr->sequenceReader->getData(tChainDbId, thread_idx);
                         float* tdata = tcoords.read(tcadata, tChainLen, tCaLength);
 
                         // Save each chain into Alignedcoords
                         cmplfiltcrit.fillComplexAlignment(alnchain, chainOffset, qdata, tdata, qAlnCoords, tAlnCoords);
                     }
 
-                    if (par.filtChainTmThr > 0.0) { // TODO: Recover
+                    if (par.filtChainTmThr > 0.0) { 
                         cmplfiltcrit.computeChainTmScore(qAlnCoords, tAlnCoords, totalAlnLen);
                     }
 
-                    if (par.filtInterfaceLddtThr > 0.0) { // TODO: Recover
+                    if (par.filtInterfaceLddtThr > 0.0) {
                         std::vector<unsigned int> qAlnChainKeys(cmplfiltcrit.alignedChains.size());
                         for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
                             qAlnChainKeys[i] = cmplfiltcrit.alignedChains[i].qKey;
@@ -896,9 +909,9 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
     
     resultWriter.close(false);
     resultWrite5.close(false);
-    qStructDbr.close();
-    alnDbr.close();
     delete qDbr;
+    delete qStructDbr;
+    alnDbr.close();
     if (sameDB == false) {
         delete tDbr;
         delete tStructDbr;
