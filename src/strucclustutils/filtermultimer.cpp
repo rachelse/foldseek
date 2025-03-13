@@ -14,6 +14,7 @@
 #include <omp.h>
 #endif
 #define INTERFACE_THRESHOLD 8
+typedef Coordinates AlignedCoordinate;
 
 unsigned int cigarToAlignedLength(const std::string &cigar) {
     std::string backtrace = Matcher::uncompressAlignment(cigar);
@@ -24,6 +25,54 @@ unsigned int cigarToAlignedLength(const std::string &cigar) {
         }
     }
     return alni;
+}
+
+float computeTmScore(unsigned int start, unsigned int tLen, unsigned int alnLen, 
+                    AlignedCoordinate &qchain , AlignedCoordinate &tmt) {
+    float d0 = 1.24*(cbrt(tLen-15)) -1.8;
+    float d02 = d0*d0;
+    float tmScore = 0;
+    for (size_t ci=start; ci<start+alnLen; ci++) {
+        float xa_x = qchain.x[ci];
+        float xa_y = qchain.y[ci];
+        float xa_z = qchain.z[ci];
+        float ya_x = tmt.x[ci];
+        float ya_y = tmt.y[ci];
+        float ya_z = tmt.z[ci];
+        float di = BasicFunction::dist(xa_x, xa_y, xa_z, ya_x, ya_y, ya_z);
+        float oneDividedDist = 1/(1+di/d02);
+        tmScore += oneDividedDist;
+    }
+
+                
+    // TODO: Implement in SIMD
+    // simd_float vd02 = simdf32_set(d02);
+    // simd_float one = simdf32_set(1.0);
+    // simd_float acc = simdf32_set(0.0);
+    // std::cout << "AlnKey: " << i << " AlnLen: " << alnLen << std::endl;
+    // for (unsigned int ci=chainOffset; ci<chainOffset+alnLen-VECSIZE_FLOAT; ci+=VECSIZE_FLOAT) {
+    //     std::cout << ci << std::endl;
+    //     simd_float xa_x = simdf32_load(&qchain.x[ci]);
+    //     // simd_float xa_y = simdf32_load(&qchain.y[ci]);
+    //     // simd_float xa_z = simdf32_load(&qchain.z[ci]);
+    //     // simd_float ya_x = simdf32_load(&tmt.x[ci]);
+    //     // simd_float ya_y = simdf32_load(&tmt.y[ci]);
+    //     // simd_float ya_z = simdf32_load(&tmt.z[ci]);
+    //     // ya_x = simdf32_sub(xa_x, ya_x);
+    //     // ya_y = simdf32_sub(xa_y, ya_y);
+    //     // ya_z = simdf32_sub(xa_z, ya_z);
+    //     // simd_float di = simdf32_add(simdf32_add(simdf32_mul(xa_x, xa_x), simdf32_mul(xa_y, xa_y)), simdf32_mul(xa_z, xa_z));
+    //     // simd_float oneDividedDist = simdf32_div(one, simdf32_add(one, simdf32_div(di,vd02)));
+    //     // acc = simdf32_add(acc, oneDividedDist);
+    // }
+
+    // // float sumArray[VECSIZE_FLOAT];
+    // // float tmscore = 0;
+    // // simdf32_store(sumArray, acc);
+    // // for (size_t j = 0; j < VECSIZE_FLOAT; i++) {
+    // //     tmscore += sumArray[i];
+    // // }
+    return tmScore;
 }
 
 unsigned int getInterfaceLength(std::vector<unsigned int> &qChainKeys, IndexReader *qDbr, IndexReader *qStructDbr, unsigned int thread_idx, float threshold = INTERFACE_THRESHOLD) {
@@ -78,8 +127,6 @@ struct Complex {
         // chainLengths.clear();
     }
 };
-
-typedef Coordinates AlignedCoordinate;
 
 unsigned int adjustAlnLen(unsigned int qcov, unsigned int tcov, int covMode) {
     switch (covMode) {
@@ -268,59 +315,12 @@ public:
             unsigned int qLen = chainaln.qLen;
             unsigned int tLen = chainaln.tLen;
             unsigned int alnLen = chainaln.alnLen;
-    
-            float d0 = 1.24*(cbrt(tLen-15)) -1.8;
-            float d02 = d0*d0;
 
-            float tmScore = 0;
-            for (unsigned int ci=chainOffset; ci<chainOffset+alnLen; ci++) {
-                float xa_x = qchain.x[ci];
-                float xa_y = qchain.y[ci];
-                float xa_z = qchain.z[ci];
-                float ya_x = tmt.x[ci];
-                float ya_y = tmt.y[ci];
-                float ya_z = tmt.z[ci];
-                float di = BasicFunction::dist(xa_x, xa_y, xa_z, ya_x, ya_y, ya_z);
-                float oneDividedDist = 1/(1+di/d02);
-                tmScore += oneDividedDist;
-            }
-
+            float tmScore = computeTmScore(chainOffset, tLen, alnLen, qchain, tmt);
             float qtmscore = tmScore / qLen;
             float ttmscore = tmScore / tLen;
             updateChainTmScore(qtmscore, ttmscore);
             chainOffset += alnLen;
-            
-            // TODO: Implement in SIMD
-            // simd_float vd02 = simdf32_set(d02);
-            // simd_float one = simdf32_set(1.0);
-            // simd_float acc = simdf32_set(0.0);
-            // std::cout << "AlnKey: " << i << " AlnLen: " << alnLen << std::endl;
-            // for (unsigned int ci=chainOffset; ci<chainOffset+alnLen-VECSIZE_FLOAT; ci+=VECSIZE_FLOAT) {
-            //     std::cout << ci << std::endl;
-            //     simd_float xa_x = simdf32_load(&qchain.x[ci]);
-            //     // simd_float xa_y = simdf32_load(&qchain.y[ci]);
-            //     // simd_float xa_z = simdf32_load(&qchain.z[ci]);
-            //     // simd_float ya_x = simdf32_load(&tmt.x[ci]);
-            //     // simd_float ya_y = simdf32_load(&tmt.y[ci]);
-            //     // simd_float ya_z = simdf32_load(&tmt.z[ci]);
-            //     // ya_x = simdf32_sub(xa_x, ya_x);
-            //     // ya_y = simdf32_sub(xa_y, ya_y);
-            //     // ya_z = simdf32_sub(xa_z, ya_z);
-            //     // simd_float di = simdf32_add(simdf32_add(simdf32_mul(xa_x, xa_x), simdf32_mul(xa_y, xa_y)), simdf32_mul(xa_z, xa_z));
-            //     // simd_float oneDividedDist = simdf32_div(one, simdf32_add(one, simdf32_div(di,vd02)));
-            //     // acc = simdf32_add(acc, oneDividedDist);
-            // }
-
-            // // float sumArray[VECSIZE_FLOAT];
-            // // float tmscore = 0;
-            // // simdf32_store(sumArray, acc);
-            // // for (size_t j = 0; j < VECSIZE_FLOAT; i++) {
-            // //     tmscore += sumArray[i];
-            // // }
-            // // float qtmscore = tmscore / qLen;
-            // // float ttmscore = tmscore / tLen;
-            // // updateChainTmScore(qtmscore, ttmscore);
-            // chainOffset += alnLen;
         }
     }
 
@@ -363,6 +363,71 @@ public:
     void calcCov(unsigned int qLen, unsigned int tLen) {
         qCov = static_cast<float>(qTotalAlnLen) / static_cast<float>(qLen);
         tCov = static_cast<float>(tTotalAlnLen) / static_cast<float>(tLen);
+    }
+
+    void computeInterfaceTmScore(AlignedCoordinate &qAlnCoords, AlignedCoordinate &tAlnCoords, unsigned int interfaceLength, float threshold = INTERFACE_THRESHOLD) {
+        // DOING
+        if (alignedChains.size() == 1) { // No interface if only one chain aligned
+            interfaceLddt = 1;
+            return;
+        }
+        std::vector<unsigned int> chainOffsets(alignedChains.size(), 0);
+        unsigned int acc = 0;
+        for (size_t i = 0; i < alignedChains.size(); i++) {
+            chainOffsets[i] = acc;
+            acc += alignedChains[i].alnLen;
+        }
+        
+        float t2 = threshold * threshold;
+
+        std::set<unsigned int> interfacePos;    
+        unsigned int intAlnLen = 0;
+
+        // Find and save interface Coordinates
+        for (size_t chainIdx = 0; chainIdx < chainOffsets.size(); chainIdx++) {
+            unsigned int c1_start = chainOffsets[chainIdx];
+            unsigned int c1_end = c1_start + alignedChains[chainIdx].alnLen;
+            for (size_t resIdx1 = c1_start; resIdx1 < c1_end; resIdx1++) {
+                bool isInterface = false;
+                for (size_t resIdx2 = c1_end; resIdx2 < acc; resIdx2++) { // Rest of the chainss
+                    float dist = BasicFunction::dist(qAlnCoords.x[resIdx1], qAlnCoords.y[resIdx1], qAlnCoords.z[resIdx1],
+                                                    qAlnCoords.x[resIdx2], qAlnCoords.y[resIdx2], qAlnCoords.z[resIdx2]);
+                    if (dist < t2) {
+                        isInterface = true;
+                        if (interfacePos.find(resIdx2) == interfacePos.end()) {
+                            interfacePos.insert(resIdx2);
+                            intAlnLen++;
+                        }
+                    }
+                }
+                if (isInterface && interfacePos.find(resIdx1) == interfacePos.end()) {
+                    interfacePos.insert(resIdx1);
+                    intAlnLen++;
+                }
+            }
+        }
+
+        if (intAlnLen == 0) {
+            return;
+        }
+
+        AlignedCoordinate qInterface(intAlnLen);
+        AlignedCoordinate tInterface(intAlnLen);
+        AlignedCoordinate tmt(intAlnLen);
+        size_t idx = 0;
+        //     // if (qInterfacePos[chainIdx].size() >= 4) { // TODO: Is it important? then change interfacePos into vector. But it can cause (intLen > idx) + downstream errors in lddt calculation
+        for (size_t resIdx: interfacePos) {
+            qInterface.x[idx] = qAlnCoords.x[resIdx];
+            qInterface.y[idx] = qAlnCoords.y[resIdx];
+            qInterface.z[idx] = qAlnCoords.z[resIdx];
+            tInterface.x[idx] = tAlnCoords.x[resIdx];
+            tInterface.y[idx] = tAlnCoords.y[resIdx];
+            tInterface.z[idx] = tAlnCoords.z[resIdx];
+            idx++;
+        }
+        BasicFunction::do_rotation(tInterface, tmt, intAlnLen, t, u);
+        float tmScore = computeTmScore(0, interfaceLength, intAlnLen, qInterface, tmt);
+        interfaceLddt = tmScore / interfaceLength;
     }
 
     void computeInterfaceLddt(AlignedCoordinate &qAlnCoords, AlignedCoordinate &tAlnCoords, unsigned int interfaceLength, float threshold = INTERFACE_THRESHOLD) {
@@ -760,7 +825,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     continue;
                 }
 
-                if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
+                // if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
                     // Fill aligned coords
                     unsigned int totalAlnLen = 0;
                     for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
@@ -793,11 +858,11 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         cmplfiltcrit.fillComplexAlignment(alnchain, chainOffset, qdata, tdata, qAlnCoords, tAlnCoords);
                     }
 
-                    if (par.filtChainTmThr > 0.0) { 
+                    // if (par.filtChainTmThr > 0.0) { 
                         cmplfiltcrit.computeChainTmScore(qAlnCoords, tAlnCoords, totalAlnLen);
-                    }
+                    // }
 
-                    if (par.filtInterfaceLddtThr > 0.0) {
+                    // if (par.filtInterfaceLddtThr > 0.0) {
                         std::vector<unsigned int> qAlnChainKeys(cmplfiltcrit.alignedChains.size());
                         for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
                             qAlnChainKeys[i] = cmplfiltcrit.alignedChains[i].qKey;
@@ -809,13 +874,14 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         }
                         unsigned int interfaceLength = qalnchain2intlen.at(qAlnChainKeys);
 
-                        cmplfiltcrit.computeInterfaceLddt(qAlnCoords, tAlnCoords, interfaceLength);
-                    }
+                        // cmplfiltcrit.computeInterfaceLddt(qAlnCoords, tAlnCoords, interfaceLength);
+                        cmplfiltcrit.computeInterfaceTmScore(qAlnCoords, tAlnCoords, interfaceLength);
+                    // }
 
                     if (!(cmplfiltcrit.satisfy_second(par.covMode, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
                         continue;
                     }
-                }
+                // }
 
                 // Check if the rest criteria are met
                 // if (!(cmplfiltcrit.satisfy(par.covMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
