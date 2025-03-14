@@ -825,7 +825,7 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                     continue;
                 }
 
-                // if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
+                if (par.filtChainTmThr || par.filtInterfaceLddtThr) {
                     // Fill aligned coords
                     unsigned int totalAlnLen = 0;
                     for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
@@ -858,11 +858,11 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         cmplfiltcrit.fillComplexAlignment(alnchain, chainOffset, qdata, tdata, qAlnCoords, tAlnCoords);
                     }
 
-                    // if (par.filtChainTmThr > 0.0) { 
+                    if (par.filtChainTmThr > 0.0) { 
                         cmplfiltcrit.computeChainTmScore(qAlnCoords, tAlnCoords, totalAlnLen);
-                    // }
+                    }
 
-                    // if (par.filtInterfaceLddtThr > 0.0) {
+                    if (par.filtInterfaceLddtThr > 0.0) {
                         std::vector<unsigned int> qAlnChainKeys(cmplfiltcrit.alignedChains.size());
                         for (size_t i = 0; i < cmplfiltcrit.alignedChains.size(); i++) {
                             qAlnChainKeys[i] = cmplfiltcrit.alignedChains[i].qKey;
@@ -874,14 +874,14 @@ localThreads = std::max(std::min((size_t)par.threads, alnDbr.getSize()), (size_t
                         }
                         unsigned int interfaceLength = qalnchain2intlen.at(qAlnChainKeys);
 
-                        // cmplfiltcrit.computeInterfaceLddt(qAlnCoords, tAlnCoords, interfaceLength);
-                        cmplfiltcrit.computeInterfaceTmScore(qAlnCoords, tAlnCoords, interfaceLength);
-                    // }
+                        cmplfiltcrit.computeInterfaceLddt(qAlnCoords, tAlnCoords, interfaceLength);
+                        // cmplfiltcrit.computeInterfaceTmScore(qAlnCoords, tAlnCoords, interfaceLength);
+                    }
 
                     if (!(cmplfiltcrit.satisfy_second(par.covMode, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
                         continue;
                     }
-                // }
+                }
 
                 // Check if the rest criteria are met
                 // if (!(cmplfiltcrit.satisfy(par.covMode, par.covThr, par.filtMultimerTmThr, par.filtChainTmThr, par.filtInterfaceLddtThr, qComplex.nChain, tComplex.nChain))) {
