@@ -16,6 +16,7 @@ LocalParameters::LocalParameters() :
         PARAM_MASK_BFACTOR_THRESHOLD(PARAM_MASK_BFACTOR_THRESHOLD_ID,"--mask-bfactor-threshold", "Mask b-factor threshold", "mask residues for seeding if b-factor < thr [0,100]",typeid(float), (void *) &maskBfactorThreshold, "^[0-9]*(\\.[0-9]+)?$"),
         PARAM_ALIGNMENT_TYPE(PARAM_ALIGNMENT_TYPE_ID,"--alignment-type", "Alignment type", "How to compute the alignment:\n0: 3di alignment\n1: TM alignment\n2: 3Di+AA",typeid(int), (void *) &alignmentType, "^[0-2]{1}$"),
         PARAM_CHAIN_NAME_MODE(PARAM_CHAIN_NAME_MODE_ID,"--chain-name-mode", "Chain name mode", "Add chain to name:\n0: auto\n1: always add\n",typeid(int), (void *) &chainNameMode, "^[0-1]{1}$", MMseqsParameter::COMMAND_EXPERT),
+        PARAM_MODEL_NAME_MODE(PARAM_MODEL_NAME_MODE_ID,"--model-name-mode", "Model name mode", "Add model to name:\n0: auto\n1: always add\n",typeid(int), (void *) &modelNameMode, "^[0-1]{1}$", MMseqsParameter::COMMAND_EXPERT),
         PARAM_WRITE_MAPPING(PARAM_WRITE_MAPPING_ID, "--write-mapping", "Write mapping file", "write _mapping file containing mapping from internal id to taxonomic identifier", typeid(int), (void *) &writeMapping, "^[0-1]{1}", MMseqsParameter::COMMAND_EXPERT),
         PARAM_TMALIGN_FAST(PARAM_TMALIGN_FAST_ID,"--tmalign-fast", "TMalign fast","turn on fast search in TM-align" ,typeid(int), (void *) &tmAlignFast, "^[0-1]{1}$"),
         PARAM_EXACT_TMSCORE(PARAM_EXACT_TMSCORE_ID,"--exact-tmscore", "Exact TMscore","turn on fast exact TMscore (slow), default is approximate" ,typeid(int), (void *) &exactTMscore, "^[0-1]{1}$"),
@@ -44,6 +45,8 @@ LocalParameters::LocalParameters() :
     PARAM_ALIGNMENT_MODE.description = "How to compute the alignment:\n0: automatic\n1: only score and end_pos\n2: also start_pos and cov\n3: also seq.id";
     PARAM_ALIGNMENT_MODE.regex = "^[0-3]{1}$";
     PARAM_ALIGNMENT_MODE.category = MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_EXPERT;
+    PARAM_NUM_ITERATIONS.description = "Number of iterative profile search iterations (0: auto (select optimal), 1: default, 1-n), N≥2 exactly N)";
+    PARAM_NUM_ITERATIONS.regex = "^[0-9]{1}[0-9]*$";
     PARAM_EXHAUSTIVE_SEARCH.description = "Turns on an exhaustive all vs all search by by passing the prefilter step";
     PARAM_EXHAUSTIVE_SEARCH.category = MMseqsParameter::COMMAND_PREFILTER;
     PARAM_MIN_ALN_LEN.category = MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_EXPERT;
@@ -86,6 +89,7 @@ LocalParameters::LocalParameters() :
     structurecreatedb.push_back(&PARAM_GPU);
     structurecreatedb.push_back(&PARAM_PROSTT5_MODEL);
     structurecreatedb.push_back(&PARAM_CHAIN_NAME_MODE);
+    structurecreatedb.push_back(&PARAM_MODEL_NAME_MODE);
     structurecreatedb.push_back(&PARAM_DB_EXTRACTION_MODE);
     structurecreatedb.push_back(&PARAM_DISTANCE_THRESHOLD);
     structurecreatedb.push_back(&PARAM_WRITE_MAPPING);
@@ -298,6 +302,7 @@ LocalParameters::LocalParameters() :
     // createdb
     maskBfactorThreshold = 0;
     chainNameMode = 0;
+    modelNameMode = 0;
     writeMapping = 0;
     coordStoreMode = COORD_STORE_MODE_CA_DIFF;
     inputFormat = 0; // auto detect
@@ -326,6 +331,8 @@ LocalParameters::LocalParameters() :
     dbSuffixList = "_h,_ss,_ca";
     indexExclude = 0;
 
+    // profiles
+    evalProfile = 0.1;
     // multimer
     eValueThrExpandMultimer = 10000.0;
     multimerReportMode = 1;
@@ -339,7 +346,7 @@ LocalParameters::LocalParameters() :
     citations.emplace(CITATION_PROSTT5, "Heinzinger, M., Weissenow, K., Gomez Sanchez, J., Henkel, A., Mirdita, M., Steinegger, M., and Burkhard, R. Bilingual Language Model for Protein Sequence and Structure. NAR Genomics and Bioinformatics, doi:10.1093/nargab/lqae150 (2024)");
     
     //rewrite param vals.
-    PARAM_FORMAT_OUTPUT.description = "Choose comma separated list of output columns from: query,target,evalue,gapopen,pident,fident,nident,qstart,qend,qlen\ntstart,tend,tlen,alnlen,raw,bits,cigar,qseq,tseq,qheader,theader,qaln,taln,mismatch,qcov,tcov\nqset,qsetid,tset,tsetid,taxid,taxname,taxlineage,\nlddt,lddtfull,qca,tca,t,u,qtmscore,ttmscore,alntmscore,rmsd,prob\ncomplexqtmscore,complexttmscore,complexu,complext,complexassignid\n";
+    PARAM_FORMAT_OUTPUT.description = "Choose comma separated list of output columns from: query,target,evalue,gapopen,pident,fident,nident,qstart,qend,qlen\ntstart,tend,tlen,alnlen,raw,bits,cigar,qseq,tseq,q3di,t3di,qheader,theader,qaln,taln,q3dialn,t3dialn,mismatch,qcov,tcov\nqset,qsetid,tset,tsetid,taxid,taxname,taxlineage,\nlddt,lddtfull,qca,tca,t,u,qtmscore,ttmscore,alntmscore,rmsd,prob\ncomplexqtmscore,complexttmscore,complexu,complext,complexassignid\n";
 
     // allow higher values for GGML debug trace
     PARAM_V.regex = "^[0-4]{1}$";
@@ -347,9 +354,10 @@ LocalParameters::LocalParameters() :
 
 
 
-std::vector<int> LocalParameters::getOutputFormat(int formatMode, const std::string &outformat, bool &needSequences, bool &needBacktrace, bool &needFullHeaders,
-                                             bool &needLookup, bool &needSource, bool &needTaxonomyMapping, bool &needTaxonomy, bool &needQCa, bool &needTCa, bool &needTMaligner,
-                                             bool &needLDDT) {
+std::vector<int> LocalParameters::getOutputFormat(
+    int formatMode, const std::string &outformat, bool &needSequences, bool &need3Di, bool &needBacktrace, bool &needFullHeaders,
+    bool &needLookup, bool &needSource, bool &needTaxonomyMapping, bool &needTaxonomy, bool &needQCa, bool &needTCa, bool &needTMaligner,
+    bool &needLDDT) {
     std::vector<int> formatCodes;
     if (formatMode == Parameters::FORMAT_ALIGNMENT_SAM || formatMode == Parameters::FORMAT_ALIGNMENT_HTML) {
         needSequences = true;
@@ -379,10 +387,14 @@ std::vector<int> LocalParameters::getOutputFormat(int formatMode, const std::str
         else if (outformatSplit[i].compare("cigar") == 0){ needBacktrace = true; code = Parameters::OUTFMT_CIGAR;}
         else if (outformatSplit[i].compare("qseq") == 0){ needSequences = true; code = Parameters::OUTFMT_QSEQ;}
         else if (outformatSplit[i].compare("tseq") == 0){ needSequences = true; code = Parameters::OUTFMT_TSEQ;}
+        else if (outformatSplit[i].compare("q3di") == 0) { need3Di = true; code = LocalParameters::OUTFMT_Q3DI; }
+        else if (outformatSplit[i].compare("t3di") == 0) { need3Di = true; code = LocalParameters::OUTFMT_T3DI; }
         else if (outformatSplit[i].compare("qheader") == 0){ needFullHeaders = true; code = Parameters::OUTFMT_QHEADER;}
         else if (outformatSplit[i].compare("theader") == 0){ needFullHeaders = true; code = Parameters::OUTFMT_THEADER;}
         else if (outformatSplit[i].compare("qaln") == 0){ needBacktrace = true; needSequences = true; code = Parameters::OUTFMT_QALN;}
         else if (outformatSplit[i].compare("taln") == 0){ needBacktrace = true; needSequences = true; code = Parameters::OUTFMT_TALN;}
+        else if (outformatSplit[i].compare("q3dialn") == 0){ needBacktrace = true; need3Di = true; code = LocalParameters::OUTFMT_Q3DIALN;}
+        else if (outformatSplit[i].compare("t3dialn") == 0){ needBacktrace = true; need3Di = true; code = LocalParameters::OUTFMT_T3DIALN;}
         else if (outformatSplit[i].compare("mismatch") == 0){ code = Parameters::OUTFMT_MISMATCH;}
         else if (outformatSplit[i].compare("qcov") == 0){ code = Parameters::OUTFMT_QCOV;}
         else if (outformatSplit[i].compare("tcov") == 0){ code = Parameters::OUTFMT_TCOV;}
